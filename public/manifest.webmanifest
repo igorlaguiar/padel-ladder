@@ -1,0 +1,9 @@
+{
+  "name": "Padel Ladder",
+  "short_name": "Ladder",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f1e8",
+  "theme_color": "#11251e",
+  "icons": []
+}
