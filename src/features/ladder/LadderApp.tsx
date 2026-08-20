@@ -2,12 +2,12 @@
 
 import {
   ArrowDown,
-  ArrowLeft,
   ArrowRight,
   ArrowUp,
   CalendarDays,
   CircleCheckBig,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Clock3,
   Crown,
@@ -355,8 +355,7 @@ function WeeklyAwards({ week, weeks }: { week: LadderWeek; weeks: LadderWeek[] }
   return (
     <section className="weekly-awards" aria-labelledby="weekly-awards-title">
       <header>
-        <span className="eyebrow">WEEKLY AWARDS</span>
-        <h3 id="weekly-awards-title">This week’s standouts</h3>
+        <h3 id="weekly-awards-title">Awards</h3>
       </header>
       <div className="weekly-award-grid">
         {awards.map((award) => (
@@ -760,7 +759,12 @@ function StatsView({ profiles, onSelect }: { profiles: PlayerProfile[]; onSelect
         ))}
       </section>
       <section className="leaderboard-card">
-        <header><CircleCheckBig size={20} /><div><h3>Most sets won</h3><p>Substitute sets are excluded.</p></div></header>
+        <header>
+          <CircleCheckBig size={20} />
+          <div>
+            <div className="leaderboard-title"><h3>Most sets won</h3><button type="button" className="leaderboard-info" aria-label="About most sets won" aria-describedby="sets-won-detail"><Info size={13} /><span id="sets-won-detail" className="leaderboard-tooltip" role="tooltip">Substitute sets are excluded.</span></button></div>
+          </div>
+        </header>
         {setWinners.map((profile, index) => (
           <button key={profile.name} onClick={() => onSelect(profile.name)}>
             <span className="rank">{index + 1}</span><span className="avatar small">{initials(profile.name)}</span>
@@ -988,7 +992,7 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
   }
 
   const destinations: { id: LadderSection; href: string; label: string; mobileLabel: string; icon: React.ReactNode }[] = [
-    { id: "week", href: "/", label: "This Week", mobileLabel: "Week", icon: <CalendarDays size={18} /> },
+    { id: "week", href: "/", label: "Upcoming", mobileLabel: "Upcoming", icon: <CalendarDays size={18} /> },
     { id: "results", href: "/results", label: "Results", mobileLabel: "Results", icon: <CircleCheckBig size={18} /> },
     { id: "stats", href: "/stats", label: "Stats", mobileLabel: "Stats", icon: <ListOrdered size={18} /> },
     { id: "head-to-head", href: "/head-to-head", label: "Head to Head", mobileLabel: "H2H", icon: <UsersRound size={18} /> },
@@ -1015,7 +1019,7 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
         <div className="hero-copy">
           <span className="eyebrow"><i /> PADEL+PICKLE ST. LOUIS</span>
           <h1>Find your box.<br /><em>Climb the ladder.</em></h1>
-          <p>Weekly positions, results, player form, and the race up the ladder.</p>
+          <p>Upcoming matches, weekly results, league stats and more.</p>
         </div>
         <HeroScoreboard />
         <HeroOrbit />
@@ -1024,7 +1028,7 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
       <section className="search-wrap">
         <Search size={21} />
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a player…" aria-label="Find a player" />
-        {query ? <button onClick={() => setQuery("")} aria-label="Clear search"><X size={18} /></button> : <span className="search-hint">⌘ K</span>}
+        {query ? <button onClick={() => setQuery("")} aria-label="Clear search"><X size={18} /></button> : null}
         {searchResults.length ? <div className="search-results">{searchResults.map((profile) => <button key={profile.name} onClick={() => { setSelectedName(profile.name); setQuery(""); }}><span className="avatar small">{initials(profile.name)}</span><span><strong>{profile.name}</strong><small>{profile.rank ? `#${profile.rank} in club · ` : ""}Box {profile.currentBox}</small></span><ChevronRight size={18} /></button>)}</div> : null}
       </section>
       </> : null}
@@ -1051,7 +1055,7 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
 
         {section === "results" ? <>
           <div className="section-head">
-            <div><h2>Match results</h2><p>Review scores and ladder movement by week.</p></div>
+            <div><h2>Weekly results</h2><p>Review scores and ladder movement by week.</p></div>
           </div>
           {resultsWeek ? (
             <div className="results-week-nav" aria-label="Results week navigation">
@@ -1059,23 +1063,26 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
                 type="button"
                 disabled={!previousResultsWeek}
                 onClick={() => previousResultsWeek && setResultsWeekKey(previousResultsWeek.dateKey)}
+                aria-label="Previous results week"
               >
-                <ArrowLeft size={17} /> Previous week
+                <ChevronLeft size={24} strokeWidth={2.5} />
               </button>
               <div>
-                <span>RESULTS FOR</span>
+                <span>WEEK {resultsWeekIndex + 1}</span>
                 <strong>{resultsWeek.date}</strong>
               </div>
               <button
                 type="button"
                 disabled={!nextResultsWeek}
                 onClick={() => nextResultsWeek && setResultsWeekKey(nextResultsWeek.dateKey)}
+                aria-label="Next results week"
               >
-                Next week <ArrowRight size={17} />
+                <ChevronRight size={24} strokeWidth={2.5} />
               </button>
             </div>
           ) : null}
           {resultsWeek ? <WeeklyAwards week={resultsWeek} weeks={data.weeks} /> : null}
+          {resultsWeek ? <h3 className="results-label">Results</h3> : null}
           <LadderGrid
             week={resultsWeek}
             profiles={profiles}
@@ -1088,9 +1095,9 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
         </> : null}
 
         {section === "stats" ? <>
-          <div className="section-head"><div><h2>Stats</h2></div></div>
+          <div className="section-head"><div><h2>League numbers</h2></div></div>
           <div className="stats-tabs" aria-label="Stats views">
-            <button type="button" className={statsMode === "leaders" ? "active" : ""} aria-pressed={statsMode === "leaders"} onClick={() => setStatsMode("leaders")}>League stats</button>
+            <button type="button" className={statsMode === "leaders" ? "active" : ""} aria-pressed={statsMode === "leaders"} onClick={() => setStatsMode("leaders")}>Stats</button>
             <button type="button" className={statsMode === "ranking" ? "active" : ""} aria-pressed={statsMode === "ranking"} onClick={() => setStatsMode("ranking")}>Ranking</button>
           </div>
           {statsMode === "leaders" ? <StatsView profiles={data.profiles} onSelect={setSelectedName} /> : <>
@@ -1099,10 +1106,10 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
           </>}
         </> : null}
 
-        {section === "head-to-head" ? <><div className="section-head"><div><h2>Compare players</h2></div></div><CompareView profiles={data.profiles} weeks={data.weeks} onSelect={setSelectedName} /></> : null}
+        {section === "head-to-head" ? <><div className="section-head compare-section-head"><div><h2>Compare players</h2></div></div><CompareView profiles={data.profiles} weeks={data.weeks} onSelect={setSelectedName} /></> : null}
       </section>
 
-      <footer><span className="brand-mark">P/</span><span>Updated when the league sheet is rebuilt.</span><span>{data.profiles.length} players · {data.weeks.length} weeks</span></footer>
+      <footer>Built by Igor Aguiar</footer>
       {selected ? (
         <ProfilePanel
           profile={selected}
