@@ -5,14 +5,14 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
-  BarChart3,
+  CalendarDays,
   CircleCheckBig,
   ChevronDown,
   ChevronRight,
   Clock3,
   Crown,
   Flame,
-  GitCompareArrows,
+  Info,
   ListOrdered,
   Medal,
   RotateCcw,
@@ -25,13 +25,15 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ConfirmedSetResult, LadderBox, LadderData, LadderWeek, Movement, PlayerProfile, PlayerResult } from "@/lib/types";
 import { buildHeadToHeadRecord, sortBoxPlayers } from "@/lib/ladder";
 import { buildWeeklyAwards, type WeeklyAwardKind } from "@/lib/weeklyAwards";
 
-type View = "ladder" | "ranking" | "stats" | "compare";
-type LadderMode = "upcoming" | "results";
+export type LadderSection = "week" | "results" | "stats" | "head-to-head";
+type StatsMode = "leaders" | "ranking";
 
 const heroScoreFrames = [
   { point: "0 - 0", first: "3", second: "2" },
@@ -344,8 +346,13 @@ function WeeklyAwards({ week, weeks }: { week: LadderWeek; weeks: LadderWeek[] }
           <article key={award.kind} className="weekly-award">
             <span className="weekly-award-icon" aria-hidden="true">{awardIcons[award.kind]}</span>
             <div>
-              <span>{award.title}</span>
-              <p>{award.detail}</p>
+              <div className="weekly-award-title">
+                <span>{award.title}</span>
+                <button type="button" className="weekly-award-info" aria-label={`About ${award.title}`} aria-describedby={`award-${award.kind}-detail`}>
+                  <Info size={13} />
+                  <span id={`award-${award.kind}-detail`} className="award-tooltip" role="tooltip">{award.detail}</span>
+                </button>
+              </div>
               <div className="weekly-award-names">
                 {award.recipients.map((recipient) => (
                   <strong key={`${recipient.name}-${recipient.note || ""}`}>
@@ -355,7 +362,13 @@ function WeeklyAwards({ week, weeks }: { week: LadderWeek; weeks: LadderWeek[] }
               </div>
               {award.honorableMentions?.length ? (
                 <div className="weekly-award-honorable">
-                  <span>HONORABLE {award.honorableMentions.length > 1 ? "MENTIONS" : "MENTION"}</span>
+                  <div className="weekly-award-honorable-label">
+                    <span>HONORABLE {award.honorableMentions.length > 1 ? "MENTIONS" : "MENTION"}</span>
+                    <button type="button" className="weekly-award-info" aria-label="About honorable mentions" aria-describedby={`award-${award.kind}-honorable`}>
+                      <Info size={12} />
+                      <span id={`award-${award.kind}-honorable`} className="award-tooltip" role="tooltip">Also won all three sets, but did not enter this week after an UP result.</span>
+                    </button>
+                  </div>
                   <div>{award.honorableMentions.map((recipient) => <strong key={recipient.name}>{recipient.name}</strong>)}</div>
                 </div>
               ) : null}
@@ -896,9 +909,9 @@ function CompareView({ profiles, weeks, onSelect }: { profiles: PlayerProfile[];
   );
 }
 
-export function LadderApp({ data }: { data: LadderData }) {
-  const [view, setView] = useState<View>("ladder");
-  const [ladderMode, setLadderMode] = useState<LadderMode>(data.upcoming ? "upcoming" : "results");
+export function LadderApp({ data, section }: { data: LadderData; section: LadderSection }) {
+  const router = useRouter();
+  const [statsMode, setStatsMode] = useState<StatsMode>("leaders");
   const [resultsWeekKey, setResultsWeekKey] = useState(data.latestCompleted?.dateKey || "");
   const [query, setQuery] = useState("");
   const [selectedName, setSelectedName] = useState<string | null>(null);
@@ -912,36 +925,39 @@ export function LadderApp({ data }: { data: LadderData }) {
   const resultsWeekIndex = resultsWeeks.findIndex((candidate) => candidate.dateKey === resultsWeek?.dateKey);
   const previousResultsWeek = resultsWeeks[resultsWeekIndex - 1];
   const nextResultsWeek = resultsWeeks[resultsWeekIndex + 1];
-  const week = ladderMode === "upcoming" ? data.upcoming : resultsWeek;
+  const week = section === "week" ? data.upcoming : resultsWeek;
 
   function viewUpcomingBox(box: number) {
     if (!data.upcoming?.boxes.some((candidate) => candidate.number === box)) return;
     setSelectedName(null);
-    setView("ladder");
-    setLadderMode("upcoming");
-    window.setTimeout(() => {
-      const boxId = `box-${box}`;
-      window.history.replaceState(null, "", `#${boxId}`);
-      document.getElementById(boxId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
+    router.push(`/#box-${box}`);
   }
 
-  const views: { id: View; label: string; icon: React.ReactNode }[] = [
-    { id: "ladder", label: "Ladder", icon: <UsersRound size={18} /> },
-    { id: "ranking", label: "Ranking", icon: <ListOrdered size={18} /> },
-    { id: "stats", label: "Stats", icon: <BarChart3 size={18} /> },
-    { id: "compare", label: "Compare", icon: <GitCompareArrows size={18} /> },
+  const destinations: { id: LadderSection; href: string; label: string; mobileLabel: string; icon: React.ReactNode }[] = [
+    { id: "week", href: "/", label: "This Week", mobileLabel: "Week", icon: <CalendarDays size={18} /> },
+    { id: "results", href: "/results", label: "Results", mobileLabel: "Results", icon: <CircleCheckBig size={18} /> },
+    { id: "stats", href: "/stats", label: "Stats", mobileLabel: "Stats", icon: <ListOrdered size={18} /> },
+    { id: "head-to-head", href: "/head-to-head", label: "Head to Head", mobileLabel: "H2H", icon: <UsersRound size={18} /> },
   ];
 
   return (
-    <main>
+    <main className="ladder-app">
       <header className="site-header">
-        <button className="brand" onClick={() => setView("ladder")} aria-label="Open the ladder">
+        <Link className="brand" href="/" aria-label="Open this week's ladder">
           <Image className="header-logo" src="/my-league-live-logo.png" width={651} height={254} alt="My League Live" unoptimized />
-        </button>
+        </Link>
       </header>
+      <nav className="primary-nav" aria-label="Ladder sections">
+        {destinations.map((item) => (
+          <Link key={item.id} href={item.href} className={section === item.id ? "active" : ""} aria-current={section === item.id ? "page" : undefined}>
+            {item.icon}
+            <span className="nav-label-desktop">{item.label}</span>
+            <span className="nav-label-mobile">{item.mobileLabel}</span>
+          </Link>
+        ))}
+      </nav>
 
-      <section className="hero">
+      {section === "week" ? <><section className="hero">
         <div className="hero-copy">
           <span className="eyebrow"><i /> PADEL+PICKLE ST. LOUIS</span>
           <h1>Find your box.<br /><em>Climb the ladder.</em></h1>
@@ -957,37 +973,40 @@ export function LadderApp({ data }: { data: LadderData }) {
         {query ? <button onClick={() => setQuery("")} aria-label="Clear search"><X size={18} /></button> : <span className="search-hint">⌘ K</span>}
         {searchResults.length ? <div className="search-results">{searchResults.map((profile) => <button key={profile.name} onClick={() => { setSelectedName(profile.name); setQuery(""); }}><span className="avatar small">{initials(profile.name)}</span><span><strong>{profile.name}</strong><small>{profile.rank ? `#${profile.rank} in club · ` : ""}Box {profile.currentBox}</small></span><ChevronRight size={18} /></button>)}</div> : null}
       </section>
-
-      <nav className="view-tabs" aria-label="Ladder sections">
-        {views.map((item) => <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}>{item.icon}<span>{item.label}</span></button>)}
-      </nav>
+      </> : null}
 
       <section className="content-shell">
-        {view === "ladder" ? <>
+        {section === "week" ? <>
           <div className="section-head">
             <div>
-              <span className="eyebrow">{ladderMode === "upcoming" ? "THIS WEEK" : "RESULTS ARCHIVE"}</span>
-              <h2>{ladderMode === "upcoming" ? "Upcoming matches" : "Match results"}</h2>
-              <p>{ladderMode === "upcoming" ? `${week?.date || "Date to be announced"} · Match times and courts.` : "Review scores and ladder movement by week."}</p>
+              <h2>Upcoming matches</h2>
+              <p>{week?.date || "Date to be announced"} · Match times and courts.</p>
             </div>
-            {data.upcoming ? (
-              <button
-                type="button"
-                className="ladder-view-switch"
-                onClick={() => setLadderMode(ladderMode === "upcoming" ? "results" : "upcoming")}
-              >
-                {ladderMode === "upcoming" ? <>View past results <ArrowRight size={17} /></> : <><ArrowLeft size={17} /> Back to upcoming matches</>}
-              </button>
-            ) : null}
+            <Link className="ladder-view-switch" href="/results">View past results <ArrowRight size={17} /></Link>
           </div>
-          {ladderMode === "results" && resultsWeek ? (
+          <LadderGrid
+            week={week}
+            profiles={profiles}
+            showResult={false}
+            showRecentResults
+            showSubstituteOnly
+            showWeekday
+            onSelect={setSelectedName}
+          />
+        </> : null}
+
+        {section === "results" ? <>
+          <div className="section-head">
+            <div><h2>Match results</h2><p>Review scores and ladder movement by week.</p></div>
+          </div>
+          {resultsWeek ? (
             <div className="results-week-nav" aria-label="Results week navigation">
               <button
                 type="button"
                 disabled={!previousResultsWeek}
                 onClick={() => previousResultsWeek && setResultsWeekKey(previousResultsWeek.dateKey)}
               >
-                <ArrowLeft size={17} /> Earlier results
+                <ArrowLeft size={17} /> Previous week
               </button>
               <div>
                 <span>RESULTS FOR</span>
@@ -998,31 +1017,35 @@ export function LadderApp({ data }: { data: LadderData }) {
                 disabled={!nextResultsWeek}
                 onClick={() => nextResultsWeek && setResultsWeekKey(nextResultsWeek.dateKey)}
               >
-                Later results <ArrowRight size={17} />
+                Next week <ArrowRight size={17} />
               </button>
             </div>
           ) : null}
-          {ladderMode === "results" && resultsWeek ? <WeeklyAwards week={resultsWeek} weeks={data.weeks} /> : null}
+          {resultsWeek ? <WeeklyAwards week={resultsWeek} weeks={data.weeks} /> : null}
           <LadderGrid
-            week={week}
+            week={resultsWeek}
             profiles={profiles}
-            showResult={ladderMode === "results"}
-            showRecentResults={ladderMode === "upcoming"}
+            showResult
+            showRecentResults={false}
             showSubstituteOnly
             showWeekday
             onSelect={setSelectedName}
           />
         </> : null}
 
-        {view === "ranking" ? <>
-          <div className="section-head">
-            <div><span className="eyebrow">STANDINGS</span><h2>Ladder ranking</h2><p>Your ladder rank is your place in the next round of boxes. Movement sets the first and last positions in each box. Recent non-sub game totals order the players who stay.</p></div>
+        {section === "stats" ? <>
+          <div className="section-head"><div><h2>Stats</h2></div></div>
+          <div className="stats-tabs" aria-label="Stats views">
+            <button type="button" className={statsMode === "leaders" ? "active" : ""} aria-pressed={statsMode === "leaders"} onClick={() => setStatsMode("leaders")}>League stats</button>
+            <button type="button" className={statsMode === "ranking" ? "active" : ""} aria-pressed={statsMode === "ranking"} onClick={() => setStatsMode("ranking")}>Ranking</button>
           </div>
-          <RankingView profiles={data.profiles} onSelect={setSelectedName} />
+          {statsMode === "leaders" ? <StatsView profiles={data.profiles} onSelect={setSelectedName} /> : <>
+            <p className="ranking-explanation">Your ladder rank is your place in the next round of boxes. Movement sets the first and last positions in each box. Recent non-sub game totals order the players who stay.</p>
+            <RankingView profiles={data.profiles} onSelect={setSelectedName} />
+          </>}
         </> : null}
 
-        {view === "stats" ? <><div className="section-head"><div><span className="eyebrow">NUMBERS DON'T LIE</span><h2>League leaders</h2></div></div><StatsView profiles={data.profiles} onSelect={setSelectedName} /></> : null}
-        {view === "compare" ? <><div className="section-head"><div><span className="eyebrow">HEAD TO HEAD</span><h2>Compare players</h2></div></div><CompareView profiles={data.profiles} weeks={data.weeks} onSelect={setSelectedName} /></> : null}
+        {section === "head-to-head" ? <><div className="section-head"><div><h2>Compare players</h2></div></div><CompareView profiles={data.profiles} weeks={data.weeks} onSelect={setSelectedName} /></> : null}
       </section>
 
       <footer><span className="brand-mark">P/</span><span>Updated when the league sheet is rebuilt.</span><span>{data.profiles.length} players · {data.weeks.length} weeks</span></footer>

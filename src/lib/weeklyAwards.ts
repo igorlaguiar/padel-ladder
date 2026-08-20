@@ -87,7 +87,7 @@ export function buildWeeklyAwards(week: LadderWeek, weeks: LadderWeek[]): Weekly
     );
     if (!previousBoxes.length) return [];
     const destination = Math.max(1, box.number - 1);
-    return destination < Math.min(...previousBoxes) ? [{ name: player.name, note: `Now Box ${destination}` }] : [];
+    return destination < Math.min(...previousBoxes) ? [{ name: player.name, note: `Box ${destination}` }] : [];
   }));
   if (personalBests.length) {
     awards.push({
