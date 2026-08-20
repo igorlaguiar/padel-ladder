@@ -149,6 +149,19 @@ async function sharePng(blob: Blob, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
+async function loadShareLogo(): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const logo = new window.Image();
+    logo.onload = () => resolve(logo);
+    logo.onerror = () => resolve(null);
+    logo.src = "/my-league-live-logo.png";
+  });
+}
+
+function drawShareLogo(ctx: CanvasRenderingContext2D, logo: HTMLImageElement | null) {
+  if (logo) ctx.drawImage(logo, 72, 54, 320, 120);
+}
+
 const abbreviatedWeekday = (day: string) => {
   const normalized = day.trim().toLowerCase();
   const abbreviations: Record<string, string> = {
@@ -180,7 +193,11 @@ const movementIcon = (movement: Movement) => {
 };
 
 function lastCompletedResults(profile?: PlayerProfile): PlayerResult[] {
-  return profile?.history.filter((item) => item.movement).slice(0, 3) || [];
+  return recentMovementSequence(profile, 3);
+}
+
+function recentMovementSequence(profile: PlayerProfile | undefined, limit: number): PlayerResult[] {
+  return profile?.history.filter((item) => item.movement).slice(0, limit).reverse() || [];
 }
 
 function PlayerRow({
@@ -227,7 +244,7 @@ function PlayerRow({
       ) : null}
       {showRecentResults ? (
         recentResults.length ? (
-          <span className="recent-movements" aria-label="Last three results">
+          <span className="recent-movements" aria-label="Last three results, oldest to newest">
             {recentResults.map((result) => (
               <span key={`${result.dateKey}-${result.box}`} className={`movement-badge ${result.movement.toLowerCase()}`} title={`${result.date}: ${result.movement.toLowerCase()}`}>
                 {movementIcon(result.movement)}
@@ -496,6 +513,7 @@ function ProfilePanel({
     : [];
 
   async function shareProfile() {
+    const logo = await loadShareLogo();
     const canvas = document.createElement("canvas");
     canvas.width = 1080;
     canvas.height = 1350;
@@ -513,21 +531,17 @@ function ProfilePanel({
 
     ctx.fillStyle = "#11251e";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#d9ff57";
-    ctx.fillRect(72, 72, 170, 70);
-    ctx.fillStyle = "#11251e";
-    ctx.font = "700 36px Arial";
-    ctx.fillText("PADEL /", 94, 120);
+    drawShareLogo(ctx, logo);
     ctx.textAlign = "right";
     ctx.fillStyle = "#a6b1a9";
     ctx.font = "500 24px Arial";
-    ctx.fillText("LADDER RANKING", 1008, 116);
+    ctx.fillText("PLAYER CARD", 1008, 116);
     ctx.textAlign = "left";
     ctx.fillStyle = "#f4f1e8";
     drawFitText(profile.name, 72, 285, 936, 82, 700);
     ctx.fillStyle = "#a6b1a9";
     ctx.font = "500 24px Arial";
-    ctx.fillText("CURRENT LADDER POSITION", 72, 350);
+    ctx.fillText("CURRENT LEAGUE POSITION", 72, 350);
 
     const movement = latestResult?.movement || "RESULT";
     const movementColor = movement === "UP" ? "#d9ff57" : movement === "DOWN" ? "#ff6b4a" : "#b7efdc";
@@ -537,7 +551,7 @@ function ProfilePanel({
     ctx.fillRect(72, 390, 360, 430);
     ctx.fillStyle = "#11251e";
     ctx.font = "700 24px Arial";
-    ctx.fillText("LADDER RANK", 112, 470);
+    ctx.fillText("LEAGUE RANK", 112, 470);
     ctx.font = "800 160px Arial";
     ctx.fillText(profile.rank ? `#${profile.rank}` : "—", 105, 650);
     ctx.font = "700 31px Arial";
@@ -605,7 +619,7 @@ function ProfilePanel({
     ctx.stroke();
     ctx.fillStyle = "#d9ff57";
     ctx.font = "700 28px Arial";
-    ctx.fillText("FIND YOUR BOX. MAKE YOUR MOVE.", 72, 1295);
+    ctx.fillText("FIND YOUR BOX. CLIMB THE LADDER.", 72, 1295);
     ctx.textAlign = "right";
     ctx.fillStyle = "#a6b1a9";
     ctx.font = "500 22px Arial";
@@ -627,7 +641,7 @@ function ProfilePanel({
         </div>
         <div className="profile-position">
           <div className="profile-rank-highlight">
-            <span>LADDER RANK</span>
+            <span>LEAGUE RANK</span>
             <strong>{profile.rank ? `#${profile.rank}` : "—"}</strong>
           </div>
           <button
@@ -647,8 +661,8 @@ function ProfilePanel({
         <div className="profile-stats">
           <div><strong>{profile.highestBox}</strong><span>Highest box</span></div>
           <div><strong>{profile.promotions}</strong><span>Moves up</span></div>
-          <div><strong>{profile.rank ? `#${profile.rank}` : "—"}</strong><span>Current ladder rank</span></div>
-          <div><strong>{profile.highestRank ? `#${profile.highestRank}` : "—"}</strong><span>Highest ladder rank</span></div>
+          <div><strong>{profile.rank ? `#${profile.rank}` : "—"}</strong><span>Current league rank</span></div>
+          <div><strong>{profile.highestRank ? `#${profile.highestRank}` : "—"}</strong><span>Highest league rank</span></div>
           <div><strong>{profile.weeksPlayed}</strong><span>Weeks played</span></div>
           <div><strong>{profile.setsWon}</strong><span>Sets won</span></div>
         </div>
@@ -705,12 +719,12 @@ function RankingView({ profiles, onSelect }: { profiles: PlayerProfile[]; onSele
     <div className="ranking-table">
       <header><span>RANK</span><span>PLAYER</span><span>LAST 5</span></header>
       {ranked.map((profile) => {
-        const recentResults = profile.history.filter((item) => item.movement).slice(0, 5);
+        const recentResults = recentMovementSequence(profile, 5);
         return (
           <button key={profile.name} onClick={() => onSelect(profile.name)}>
             <strong className="club-rank">#{profile.rank}</strong>
             <span className="ranking-player"><span className="avatar small">{initials(profile.name)}</span><strong>{profile.name}</strong></span>
-            <span className="recent-movements" aria-label={`${profile.name} last five results`}>
+            <span className="recent-movements" aria-label={`${profile.name} last five results, oldest to newest`}>
               {recentResults.map((result) => (
                 <span key={`${result.dateKey}-${result.box}`} className={`movement-badge ${result.movement.toLowerCase()}`} title={`${result.date}: ${result.movement.toLowerCase()}`}>
                   {movementIcon(result.movement)}
@@ -768,17 +782,32 @@ function CompareView({ profiles, weeks, onSelect }: { profiles: PlayerProfile[];
   const left = active.find((profile) => profile.name === leftName);
   const right = active.find((profile) => profile.name === rightName);
   const headToHead = left && right ? buildHeadToHeadRecord(weeks, left.name, right.name) : null;
+  const sharedBoxes = left && right
+    ? weeks
+      .filter((week) => week.completed)
+      .flatMap((week) => week.boxes.flatMap((box) => {
+        const leftPlayer = box.players.find((player) => player.name === left.name);
+        const rightPlayer = box.players.find((player) => player.name === right.name);
+        return leftPlayer && rightPlayer && !leftPlayer.substitute && !rightPlayer.substitute
+          ? [{ box, date: week.date, dateKey: week.dateKey }]
+          : [];
+      }))
+      .sort((first, second) => second.dateKey.localeCompare(first.dateKey))
+    : [];
   const metrics = left && right ? [
-    ["Sets won against", headToHead?.leftSetsWonAgainst || 0, headToHead?.rightSetsWonAgainst || 0, "higher"],
+    ["Sets H2H", headToHead?.leftSetsWonAgainst || 0, headToHead?.rightSetsWonAgainst || 0, "higher"],
+    ["League rank", left.rank || 0, right.rank || 0, "lower"],
     ["Current box", left.currentBox, right.currentBox, "lower"],
     ["Highest box", left.highestBox, right.highestBox, "lower"],
     ["Moves up", left.promotions, right.promotions, "higher"],
     ["Weeks played", left.weeksPlayed, right.weeksPlayed, "higher"],
     ["Sets won", left.setsWon, right.setsWon, "higher"],
+    ["Games won", left.totalGames, right.totalGames, "higher"],
   ] as const : [];
 
   async function shareHeadToHead() {
     if (!left || !right || !headToHead) return;
+    const logo = await loadShareLogo();
     const canvas = document.createElement("canvas");
     canvas.width = 1080;
     canvas.height = 1350;
@@ -796,11 +825,7 @@ function CompareView({ profiles, weeks, onSelect }: { profiles: PlayerProfile[];
 
     ctx.fillStyle = "#11251e";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#d9ff57";
-    ctx.fillRect(72, 72, 170, 70);
-    ctx.fillStyle = "#11251e";
-    ctx.font = "700 36px Arial";
-    ctx.fillText("PADEL /", 94, 120);
+    drawShareLogo(ctx, logo);
     ctx.textAlign = "right";
     ctx.fillStyle = "#a6b1a9";
     ctx.font = "500 24px Arial";
@@ -808,57 +833,76 @@ function CompareView({ profiles, weeks, onSelect }: { profiles: PlayerProfile[];
 
     ctx.textAlign = "left";
     ctx.fillStyle = "#f4f1e8";
-    drawFitText(left.name, 72, 290, 420, 60, 700);
+    drawFitText(left.name, 72, 275, 420, 60, 700);
     ctx.textAlign = "right";
-    drawFitText(right.name, 1008, 290, 420, 60, 700);
+    drawFitText(right.name, 1008, 275, 420, 60, 700);
     ctx.textAlign = "center";
     ctx.fillStyle = "#d9ff57";
     ctx.font = "800 28px Arial";
-    ctx.fillText("VS", 540, 284);
-
-    ctx.fillStyle = "#f4f1e8";
-    ctx.fillRect(72, 350, 444, 190);
-    ctx.fillRect(564, 350, 444, 190);
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#647269";
-    ctx.font = "500 21px Arial";
-    ctx.fillText("CLUB RANK", 112, 408);
-    ctx.fillStyle = "#11251e";
-    ctx.font = "800 68px Arial";
-    ctx.fillText(left.rank ? `#${left.rank}` : "—", 108, 485);
-    ctx.textAlign = "right";
-    ctx.font = "700 27px Arial";
-    ctx.fillText(`BOX ${left.currentBox}`, 476, 478);
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#647269";
-    ctx.font = "500 21px Arial";
-    ctx.fillText("CLUB RANK", 604, 408);
-    ctx.fillStyle = "#11251e";
-    ctx.font = "800 68px Arial";
-    ctx.fillText(right.rank ? `#${right.rank}` : "—", 600, 485);
-    ctx.textAlign = "right";
-    ctx.font = "700 27px Arial";
-    ctx.fillText(`BOX ${right.currentBox}`, 968, 478);
+    ctx.fillText("VS", 540, 269);
 
     ctx.fillStyle = "#d9ff57";
-    ctx.fillRect(72, 590, 936, 280);
+    ctx.fillRect(72, 315, 936, 190);
     ctx.textAlign = "center";
     ctx.fillStyle = "#11251e";
-    ctx.font = "700 24px Arial";
-    ctx.fillText("SETS WON AGAINST EACH OTHER", 540, 660);
-    ctx.font = "800 128px Arial";
-    ctx.fillText(`${headToHead.leftSetsWonAgainst}  –  ${headToHead.rightSetsWonAgainst}`, 540, 805);
+    ctx.font = "800 112px Arial";
+    ctx.fillText(String(headToHead.leftSetsWonAgainst), 370, 437);
+    ctx.fillText(String(headToHead.rightSetsWonAgainst), 710, 437);
+    ctx.beginPath();
+    ctx.arc(540, 410, 58, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#d9ff57";
+    ctx.font = "800 24px Arial";
+    ctx.fillText("VS", 540, 401);
+    ctx.font = "700 18px Arial";
+    ctx.fillText("SETS", 540, 430);
+
+    ctx.fillStyle = "#f4f1e8";
+    ctx.fillRect(72, 545, 444, 170);
+    ctx.fillRect(564, 545, 444, 170);
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#647269";
+    ctx.font = "500 21px Arial";
+    ctx.fillText("LEAGUE RANK", 112, 603);
+    ctx.fillStyle = "#11251e";
+    ctx.font = "800 68px Arial";
+    ctx.fillText(left.rank ? `#${left.rank}` : "—", 108, 680);
+    ctx.textAlign = "right";
+    ctx.font = "700 27px Arial";
+    ctx.fillText(`BOX ${left.currentBox}`, 476, 673);
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#647269";
+    ctx.font = "500 21px Arial";
+    ctx.fillText("LEAGUE RANK", 604, 603);
+    ctx.fillStyle = "#11251e";
+    ctx.font = "800 68px Arial";
+    ctx.fillText(right.rank ? `#${right.rank}` : "—", 600, 680);
+    ctx.textAlign = "right";
+    ctx.font = "700 27px Arial";
+    ctx.fillText(`BOX ${right.currentBox}`, 968, 673);
 
     ctx.textAlign = "left";
-    ctx.fillStyle = "#a6b1a9";
-    ctx.font = "500 22px Arial";
-    ctx.fillText("SHARED COURT RECORD", 72, 950);
-    ctx.fillStyle = "#f4f1e8";
-    ctx.font = "800 50px Arial";
-    ctx.fillText(`${headToHead.sharedSessions} SHARED BOX ${headToHead.sharedSessions === 1 ? "SESSION" : "SESSIONS"}`, 72, 1020);
-    ctx.fillStyle = "#a6b1a9";
-    ctx.font = "500 29px Arial";
-    ctx.fillText(`${headToHead.setsAgainst} sets against  ·  ${headToHead.setsTogether} sets together`, 72, 1080);
+    metrics.slice(2).forEach(([label, leftValue, rightValue], index) => {
+      const y = 770 + index * 62;
+      ctx.strokeStyle = "#3a4e46";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(72, y - 35);
+      ctx.lineTo(1008, y - 35);
+      ctx.stroke();
+      ctx.fillStyle = "#f4f1e8";
+      ctx.font = "800 30px Arial";
+      ctx.textAlign = "left";
+      ctx.fillText(String(leftValue), 72, y);
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#a6b1a9";
+      ctx.font = "500 18px Arial";
+      ctx.fillText(label.toUpperCase(), 540, y - 2);
+      ctx.fillStyle = "#f4f1e8";
+      ctx.font = "800 30px Arial";
+      ctx.textAlign = "right";
+      ctx.fillText(String(rightValue), 1008, y);
+    });
 
     ctx.strokeStyle = "#3a4e46";
     ctx.lineWidth = 2;
@@ -868,7 +912,7 @@ function CompareView({ profiles, weeks, onSelect }: { profiles: PlayerProfile[];
     ctx.stroke();
     ctx.fillStyle = "#d9ff57";
     ctx.font = "700 28px Arial";
-    ctx.fillText("FIND YOUR BOX. MAKE YOUR MOVE.", 72, 1295);
+    ctx.fillText("FIND YOUR BOX. CLIMB THE LADDER.", 72, 1295);
     ctx.textAlign = "right";
     ctx.fillStyle = "#a6b1a9";
     ctx.font = "500 22px Arial";
@@ -900,10 +944,20 @@ function CompareView({ profiles, weeks, onSelect }: { profiles: PlayerProfile[];
             return <div key={label}><strong className={leftWins ? "winner" : ""}>{a}</strong><span>{label}</span><strong className={rightWins ? "winner" : ""}>{b}</strong></div>;
           })}
         </div>
-        <div className="shared-boxes">
-          <UsersRound size={20} />
-          <div><strong>{headToHead?.sharedSessions || 0}</strong><span>shared box sessions</span><small>{headToHead?.setsAgainst || 0} sets against · {headToHead?.setsTogether || 0} sets together</small></div>
-        </div>
+        <section className="shared-boxes" aria-labelledby="shared-boxes-title">
+          <header>
+            <UsersRound size={20} />
+            <div><span id="shared-boxes-title">Shared box sessions</span><strong>{sharedBoxes.length}</strong></div>
+          </header>
+          <div className="shared-session-list">
+            {sharedBoxes.length ? sharedBoxes.map(({ box, date, dateKey }) => (
+              <article key={`${dateKey}-${box.number}`} className="shared-session">
+                <header><strong>{date}</strong><span>Box {box.number} · Court {box.court}</span></header>
+                {box.setResults.length ? <SetResults box={box} /> : <p>Set results are not available.</p>}
+              </article>
+            )) : <p>No completed shared box sessions.</p>}
+          </div>
+        </section>
       </> : null}
     </div>
   );
@@ -944,7 +998,7 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
     <main className="ladder-app">
       <header className="site-header">
         <Link className="brand" href="/" aria-label="Open this week's ladder">
-          <Image className="header-logo" src="/my-league-live-logo.png" width={651} height={254} alt="My League Live" unoptimized />
+          <Image className="header-logo" src="/my-league-live-logo.png" width={677} height={254} alt="My League Live" unoptimized />
         </Link>
       </header>
       <nav className="primary-nav" aria-label="Ladder sections">

@@ -242,10 +242,18 @@ button { color: inherit; }
 .metric-list span { color: var(--muted); font-size: 11px; font-family: "DM Mono", monospace; text-transform: uppercase; }
 .metric-list strong.winner { color: var(--ink); background: var(--lime); justify-self: start; padding: 5px 8px; }
 .metric-list strong:last-child.winner { justify-self: end; }
-.shared-boxes { background: var(--paper); margin: 0 60px 36px; padding: 18px; display: flex; align-items: center; justify-content: center; gap: 10px; }
-.shared-boxes > div { display: grid; grid-template-columns: auto auto; align-items: baseline; gap: 0 7px; }
-.shared-boxes strong { color: var(--coral); font-size: 25px; font-variant-numeric: tabular-nums; }
-.shared-boxes small { grid-column: 1 / -1; color: var(--muted); font-size: 10px; }
+.shared-boxes { background: var(--paper); margin: 0 60px 36px; padding: 18px; }
+.shared-boxes > header { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.shared-boxes > header > div { display: grid; grid-template-columns: auto auto; align-items: baseline; gap: 0 7px; }
+.shared-boxes > header span { color: var(--muted); font: 10px "DM Mono", monospace; letter-spacing: .1em; text-transform: uppercase; }
+.shared-boxes > header strong { color: var(--coral); font-size: 25px; font-variant-numeric: tabular-nums; }
+.shared-session-list { display: grid; gap: 10px; margin-top: 16px; }
+.shared-session-list > p { margin: 0; color: var(--muted); text-align: center; font-size: 11px; }
+.shared-session { background: var(--white); border: 1px solid var(--line); }
+.shared-session > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 13px 15px; }
+.shared-session > header strong { font-size: 13px; }
+.shared-session > header span { color: var(--muted); font: 10px "DM Mono", monospace; white-space: nowrap; }
+.shared-session > p { color: var(--muted); margin: 0; padding: 14px 15px; border-top: 1px solid var(--line); font-size: 11px; }
 
 .panel-scrim { position: fixed; inset: 0; background: rgba(17,37,30,.55); backdrop-filter: blur(5px); z-index: 50; display: flex; justify-content: flex-end; animation: fade-in .2s ease; }
 @keyframes fade-in { from { opacity: 0; } }

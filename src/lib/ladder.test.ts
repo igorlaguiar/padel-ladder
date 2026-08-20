@@ -95,7 +95,14 @@ describe("weekly awards and substitutes", () => {
     const data = buildLadderData(withSubstitute);
     const player = data.latestCompleted?.boxes[0].players[0];
     expect(player && participantName(player)).toBe("Alex Substitute");
-    expect(data.profiles.find((profile) => profile.name === "Alex Ace")).toMatchObject({ setsPlayed: 0, setsWon: 0, streak: 0 });
+    expect(data.profiles.find((profile) => profile.name === "Alex Ace")).toMatchObject({
+      weeksPlayed: 0,
+      totalGames: 0,
+      promotions: 0,
+      setsPlayed: 0,
+      setsWon: 0,
+      streak: 0,
+    });
     const awards = buildWeeklyAwards(data.latestCompleted!, data.weeks);
     expect(awards.find((award) => award.kind === "top")).toBeUndefined();
     expect(awards.find((award) => award.kind === "player")).toBeUndefined();
@@ -180,7 +187,7 @@ describe("buildLadderData", () => {
     expect(data.profiles.find((player) => player.name === "Evan Edge")).toMatchObject({ highestRank: 4 });
     expect(data.profiles.find((player) => player.name === "Evan Edge")?.rankingHistory[0]).toMatchObject({ week: 1, rank: 4 });
     expect(data.profiles.find((player) => player.name === "Alex Ace")?.promotions).toBe(1);
-    expect(data.profiles.find((player) => player.name === "Alex Ace")).toMatchObject({ setsPlayed: 3, setsWon: 3 });
+    expect(data.profiles.find((player) => player.name === "Alex Ace")).toMatchObject({ setsPlayed: 3, setsWon: 3, totalGames: 18 });
   });
 
   it("treats a substitute week as zero when two STAY players are tied", () => {

@@ -231,7 +231,8 @@ function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
 
   return [...histories.entries()]
     .map(([name, history]) => {
-      const played = history.filter((item) => item.total !== null);
+      const played = history.filter((item) => item.total !== null && !item.substitute);
+      const positioned = played.length ? played : history;
       const setRecord = setRecords.get(name) || { played: 0, won: 0 };
       const totalGames = played.reduce((sum, item) => sum + (item.total || 0), 0);
       const ordered = [...history].sort((a, b) => a.dateKey.localeCompare(b.dateKey));
@@ -246,8 +247,8 @@ function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
         highestRank: null,
         rankingHistory: [],
         currentBox: ordered.at(-1)?.box || 0,
-        highestBox: Math.min(...history.map((item) => item.box)),
-        lowestBox: Math.max(...history.map((item) => item.box)),
+        highestBox: Math.min(...positioned.map((item) => item.box)),
+        lowestBox: Math.max(...positioned.map((item) => item.box)),
         weeksPlayed: played.length,
         promotions: played.filter((item) => item.movement === "UP").length,
         demotions: played.filter((item) => item.movement === "DOWN").length,
