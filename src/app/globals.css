@@ -76,7 +76,9 @@ button { color: inherit; }
 .scoreboard-set { align-self: center; color: #a6b1a9; font-size: 16.5px; }
 .scoreboard-score { align-self: center; display: flex; align-items: center; gap: 7px; font: 500 54px/1 "Manrope", sans-serif; font-variant-numeric: tabular-nums; animation: score-in .18s ease-out; }
 .scoreboard-score i { color: #687870; font: 400 20px/1 "DM Mono", monospace; }
-.scoreboard-point { position: absolute; left: 19px; bottom: 44px; color: var(--coral); font-size: 16.5px; font-variant-numeric: tabular-nums; animation: score-in .18s ease-out; }
+.scoreboard-point, .scoreboard-match-point { position: absolute; bottom: 44px; color: var(--coral); font-size: 16.5px; font-variant-numeric: tabular-nums; animation: score-in .18s ease-out; }
+.scoreboard-point { left: 19px; }
+.scoreboard-match-point { right: 19px; }
 .scoreboard-prompt { grid-column: 1 / -1; align-self: end; padding-top: 10px; border-top: 1px solid #3b4c45; color: #a6b1a9; font-size: 12px; letter-spacing: .08em; }
 .scoreboard-match { position: absolute; inset: 0; padding: 18px 19px; display: grid; align-content: center; background: var(--lime); color: var(--ink); opacity: 0; transform: translateY(8px); transition: transform .18s ease-out, opacity .18s ease-out; }
 .scoreboard-match small { position: absolute; top: 17px; left: 19px; font-size: 13.5px; letter-spacing: .1em; }
