@@ -175,7 +175,7 @@ async function loadShareLogo(): Promise<HTMLImageElement | null> {
     const logo = new window.Image();
     logo.onload = () => resolve(logo);
     logo.onerror = () => resolve(null);
-    logo.src = "/my-league-live-logo.png";
+    logo.src = "/my-league-live-logo-dark.png";
   });
 }
 
@@ -515,28 +515,18 @@ function ProfilePanel({
   }
   const latestResult = profile.history.find((item) => item.total !== null && !item.substitute);
   const latestResultBox = latestResult ? historyBoxes.get(`${latestResult.dateKey}-${latestResult.box}`) : undefined;
-  const latestResultWeek = latestResultBox ? weeks.find((week) => week.boxes.includes(latestResultBox)) : undefined;
   const latestSetRecord = latestResultBox?.setResults.reduce((record, set) => {
     const team = set.teams.find((candidate) => candidate.players.includes(profile.name));
     const opponent = set.teams.find((candidate) => candidate !== team);
     if (!team || !opponent) return record;
     return { played: record.played + 1, won: record.won + (team.games > opponent.games ? 1 : 0) };
   }, { played: 0, won: 0 }) || { played: 0, won: 0 };
-  const recognition = latestResultWeek
-    ? buildWeeklyAwards(latestResultWeek, weeks).flatMap((award) => {
-      if (award.recipients.some((recipient) => recipient.name === profile.name)) {
-        const label = award.kind === "player" ? "Player of the week" : award.title.replace(/s$/, "");
-        return [label];
-      }
-      return award.honorableMentions?.some((recipient) => recipient.name === profile.name) ? ["Honorable mention"] : [];
-    }).slice(0, 3)
-    : [];
 
   async function shareProfile() {
     const logo = await loadShareLogo();
     const canvas = document.createElement("canvas");
     canvas.width = 1080;
-    canvas.height = 1350;
+    canvas.height = 1640;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
@@ -549,19 +539,26 @@ function ProfilePanel({
       ctx.fillText(text, x, y);
     };
 
+    const latestSetScores = latestResultBox?.setResults.flatMap((set) => {
+      const playerTeam = set.teams.find((team) => team.players.includes(profile.name));
+      const opponentTeam = set.teams.find((team) => team !== playerTeam);
+      return playerTeam && opponentTeam ? [`${playerTeam.games}-${opponentTeam.games}`] : [];
+    }).join(", ") || "";
+    const asOf = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date());
+
     ctx.fillStyle = "#11251e";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     drawShareLogo(ctx, logo);
     ctx.textAlign = "right";
     ctx.fillStyle = "#a6b1a9";
     ctx.font = "500 24px Arial";
-    ctx.fillText("PLAYER CARD", 1008, 116);
+    ctx.fillText("PADEL+PiCKLE STL", 1008, 116);
     ctx.textAlign = "left";
     ctx.fillStyle = "#f4f1e8";
     drawFitText(profile.name, 72, 285, 936, 82, 700);
     ctx.fillStyle = "#a6b1a9";
     ctx.font = "500 24px Arial";
-    ctx.fillText("CURRENT LEAGUE POSITION", 72, 350);
+    ctx.fillText(`AS OF ${asOf.toUpperCase()}`, 72, 350);
 
     const movement = latestResult?.movement || "RESULT";
     const movementColor = movement === "UP" ? "#d9ff57" : movement === "DOWN" ? "#ff6b4a" : "#b7efdc";
@@ -598,52 +595,101 @@ function ProfilePanel({
     );
     ctx.fillStyle = "#647269";
     ctx.font = "500 25px Arial";
-    drawFitText(latestResult?.rawScore ? `SCORES  ${latestResult.rawScore}` : "", 480, 735, 470, 25, 500);
+    drawFitText(latestSetScores ? `SCORES  ${latestSetScores}` : "SET SCORES UNAVAILABLE", 480, 735, 470, 25, 500);
 
-    let detailY = 900;
-    if (profile.streak >= 2) {
-      ctx.fillStyle = "#d9ff57";
-      ctx.fillRect(72, detailY - 42, 936, 94);
-      ctx.fillStyle = "#11251e";
-      ctx.font = "800 37px Arial";
-      ctx.fillText(`HOT STREAK  ·  ${profile.streak} CONSECUTIVE UP RESULTS`, 102, detailY + 15);
-      detailY += 145;
-    }
+    ctx.fillStyle = "#a6b1a9";
+    ctx.font = "500 23px Arial";
+    ctx.fillText("SEASON TO DATE", 72, 895);
+    ctx.fillStyle = "#f4f1e8";
+    drawFitText(
+      `${profile.promotions} moves up  ·  ${profile.setsWon} sets won  ·  ${profile.averageGames.toFixed(1)} average games per week won`,
+      72,
+      953,
+      936,
+      34,
+      700,
+    );
 
-    if (recognition.length) {
-      ctx.fillStyle = "#a6b1a9";
-      ctx.font = "500 23px Arial";
-      ctx.fillText("WEEKLY RECOGNITION", 72, detailY);
-      detailY += 50;
-      for (const award of recognition) {
-        ctx.fillStyle = "#d9ff57";
-        ctx.fillRect(72, detailY - 28, 22, 22);
-        ctx.fillStyle = "#f4f1e8";
-        drawFitText(award.toUpperCase(), 116, detailY, 890, 36, 700);
-        detailY += 58;
-      }
-    } else if (profile.streak < 2) {
-      ctx.fillStyle = "#a6b1a9";
-      ctx.font = "500 23px Arial";
-      ctx.fillText("SEASON TO DATE", 72, detailY);
+    const drawChartFrame = (title: string, x: number, y: number, width: number, height: number) => {
       ctx.fillStyle = "#f4f1e8";
-      ctx.font = "700 38px Arial";
-      ctx.fillText(`${profile.setsWon} sets won  ·  ${profile.promotions} moves up`, 72, detailY + 58);
+      ctx.fillRect(x, y, width, height);
+      ctx.fillStyle = "#647269";
+      ctx.font = "700 19px Arial";
+      ctx.fillText(title, x + 26, y + 36);
+      return { x: x + 26, y: y + 62, width: width - 52, height: height - 88 };
+    };
+    const boxArea = drawChartFrame("PLAYER BOX PERFORMANCE", 72, 1015, 456, 300);
+    const boxPoints = profile.history.filter((item) => item.movement).slice(0, 6).reverse();
+    if (boxPoints.length) {
+      const minBox = Math.min(...boxPoints.map((item) => item.box));
+      const maxBox = Math.max(...boxPoints.map((item) => item.box));
+      ctx.strokeStyle = "#b8c2bc";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(boxArea.x, boxArea.y + boxArea.height / 2);
+      ctx.lineTo(boxArea.x + boxArea.width, boxArea.y + boxArea.height / 2);
+      ctx.stroke();
+      boxPoints.forEach((item, index) => {
+        const x = boxArea.x + (boxPoints.length === 1 ? boxArea.width / 2 : (index * boxArea.width) / (boxPoints.length - 1));
+        const y = maxBox === minBox ? boxArea.y + boxArea.height / 2 : boxArea.y + ((item.box - minBox) * boxArea.height) / (maxBox - minBox);
+        ctx.fillStyle = item.movement === "UP" ? "#d9ff57" : item.movement === "DOWN" ? "#ff6b4a" : "#b7efdc";
+        ctx.beginPath();
+        ctx.arc(x, y, 18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#11251e";
+        ctx.textAlign = "center";
+        ctx.font = "800 17px Arial";
+        ctx.fillText(String(item.box), x, y + 6);
+      });
     }
+    const rankArea = drawChartFrame("PLAYER RANK", 552, 1015, 456, 300);
+    const rankPoints = profile.rankingHistory.slice(-8);
+    if (rankPoints.length) {
+      const minRank = Math.min(...rankPoints.map((item) => item.rank));
+      const maxRank = Math.max(...rankPoints.map((item) => item.rank));
+      const coordinates = rankPoints.map((item, index) => ({
+        rank: item.rank,
+        week: item.week,
+        x: rankArea.x + (rankPoints.length === 1 ? rankArea.width / 2 : (index * rankArea.width) / (rankPoints.length - 1)),
+        y: minRank === maxRank ? rankArea.y + rankArea.height / 2 : rankArea.y + ((item.rank - minRank) * rankArea.height) / (maxRank - minRank),
+      }));
+      ctx.strokeStyle = "#11251e";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      coordinates.forEach((point, index) => index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
+      ctx.stroke();
+      coordinates.forEach((point) => {
+        ctx.fillStyle = "#d9ff57";
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 13, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#11251e";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = "#11251e";
+        ctx.textAlign = "center";
+        ctx.font = "800 14px Arial";
+        ctx.fillText(String(point.rank), point.x, point.y + 5);
+        ctx.fillStyle = "#647269";
+        ctx.font = "700 13px Arial";
+        ctx.fillText(`W${point.week}`, point.x, rankArea.y + rankArea.height + 22);
+      });
+    }
+    ctx.textAlign = "left";
 
     ctx.strokeStyle = "#3a4e46";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(72, 1240);
-    ctx.lineTo(1008, 1240);
+    ctx.moveTo(72, 1530);
+    ctx.lineTo(1008, 1530);
     ctx.stroke();
     ctx.fillStyle = "#d9ff57";
     ctx.font = "700 28px Arial";
-    ctx.fillText("FIND YOUR BOX. CLIMB THE LADDER.", 72, 1295);
+    ctx.fillText("FIND YOUR BOX. CLIMB THE LADDER.", 72, 1585);
     ctx.textAlign = "right";
     ctx.fillStyle = "#a6b1a9";
     ctx.font = "500 22px Arial";
-    ctx.fillText("PADEL LADDER", 1008, 1295);
+    ctx.fillText("PLAYER CARD", 1008, 1585);
     ctx.textAlign = "left";
 
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
@@ -854,7 +900,7 @@ function CompareView({ profiles, weeks, onSelect }: { profiles: PlayerProfile[];
     ctx.textAlign = "right";
     ctx.fillStyle = "#a6b1a9";
     ctx.font = "500 24px Arial";
-    ctx.fillText("HEAD TO HEAD", 1008, 116);
+    ctx.fillText("PADEL+PiCKLE STL", 1008, 116);
 
     ctx.textAlign = "left";
     ctx.fillStyle = "#f4f1e8";
@@ -941,7 +987,7 @@ function CompareView({ profiles, weeks, onSelect }: { profiles: PlayerProfile[];
     ctx.textAlign = "right";
     ctx.fillStyle = "#a6b1a9";
     ctx.font = "500 22px Arial";
-    ctx.fillText("PADEL LADDER", 1008, 1295);
+    ctx.fillText("H2H", 1008, 1295);
 
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
     if (!blob) return;
@@ -1056,12 +1102,15 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
 
       <section className="content-shell">
         {section === "week" ? <>
-          <div className="section-head">
-            <div>
+          <div className="section-head upcoming-section-head">
+            <div className="upcoming-title">
               <h2>Upcoming matches</h2>
-              <p>{week?.date || "Date to be announced"}</p>
             </div>
-            <Link className="ladder-view-switch" href="/results">View past results <ArrowRight size={17} /></Link>
+            <p className="upcoming-date">{week?.date || "Date to be announced"}</p>
+            <Link className="ladder-view-switch" href="/results">
+              <span className="link-label"><span className="link-label-desktop">View past results</span><span className="link-label-mobile">Past results</span></span>
+              <ArrowRight size={17} />
+            </Link>
           </div>
           <LadderGrid
             week={week}
