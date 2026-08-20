@@ -135,6 +135,27 @@ const initials = (name: string) =>
 
 const firstName = (name: string) => name.trim().split(/\s+/)[0] || name;
 
+function formatIngestedAt(value: string): string {
+  const timestamp = new Date(value);
+  if (Number.isNaN(timestamp.getTime())) return "Last update unavailable";
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(timestamp);
+}
+
+function IngestedAt({ value }: { value: string }) {
+  const [timestamp, setTimestamp] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTimestamp(formatIngestedAt(value));
+  }, [value]);
+
+  return <span>Last updated: {timestamp || "—"}</span>;
+}
+
 async function sharePng(blob: Blob, fileName: string) {
   const file = new File([blob], fileName, { type: "image/png" });
   if (navigator.share && navigator.canShare?.({ files: [file] })) {
@@ -1038,7 +1059,7 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
           <div className="section-head">
             <div>
               <h2>Upcoming matches</h2>
-              <p>{week?.date || "Date to be announced"} · Match times and courts.</p>
+              <p>{week?.date || "Date to be announced"} · <IngestedAt value={data.updatedAt} /></p>
             </div>
             <Link className="ladder-view-switch" href="/results">View past results <ArrowRight size={17} /></Link>
           </div>
