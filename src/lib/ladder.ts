@@ -1,4 +1,4 @@
-import type { LadderBox, LadderData, LadderWeek, Movement, PlayerProfile, PlayerResult } from "./types";
+import type { ClubRankingEntry, ConfirmedSetResult, HeadToHeadRecord, LadderBox, LadderData, LadderWeek, Movement, PlayerProfile, PlayerResult } from "./types";
 
 const DATE_RE = /^\s*(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})\s*$/;
 const BOX_RE = /Box\s+(\d+)\s+(?:Crt|Ctrt)\s+(\d+)/i;
@@ -68,6 +68,45 @@ export function parseScore(raw: string): number[] {
     .slice(0, 3);
 }
 
+export function inferConfirmedSetResults(players: PlayerResult[]): ConfirmedSetResult[] {
+  if (players.length !== 4) return [];
+
+  return [0, 1, 2].flatMap((setIndex) => {
+    const teamsByScore = new Map<number, string[]>();
+    for (const player of players) {
+      const games = player.scores[setIndex];
+      if (!Number.isInteger(games)) return [];
+      teamsByScore.set(games, [...(teamsByScore.get(games) || []), player.name]);
+    }
+
+    const teams = [...teamsByScore.entries()];
+    if (teams.length !== 2 || teams.some(([, names]) => names.length !== 2)) return [];
+
+    return [{
+      number: setIndex + 1,
+      teams: teams.map(([games, names]) => ({ players: [names[0], names[1]], games })) as ConfirmedSetResult["teams"],
+    }];
+  });
+}
+
+export function sortBoxPlayers(
+  players: PlayerResult[],
+  order: "ranking" | "result",
+  ranking: ClubRankingEntry[] = [],
+): PlayerResult[] {
+  const rankByName = new Map(ranking.map((entry) => [entry.name, entry.rank]));
+  const resultOrder: Record<Movement, number> = { UP: 0, STAY: 1, DOWN: 2, "": 3 };
+  return players
+    .map((player, index) => ({ player, index }))
+    .sort((left, right) => {
+      const difference = order === "ranking"
+        ? (rankByName.get(left.player.name) ?? Number.MAX_SAFE_INTEGER) - (rankByName.get(right.player.name) ?? Number.MAX_SAFE_INTEGER)
+        : resultOrder[left.player.movement] - resultOrder[right.player.movement];
+      return difference || left.index - right.index;
+    })
+    .map(({ player }) => player);
+}
+
 export function parseLadderCsv(csv: string): LadderWeek[] {
   const rows = parseCsv(csv);
   const weekMap = new Map<string, LadderWeek>();
@@ -98,6 +137,7 @@ export function parseLadderCsv(csv: string): LadderWeek[] {
         time: row[base + 2] || "TBD",
         day: row[base + 3] || "",
         players: [],
+        setResults: [],
       };
 
       for (let offset = 1; offset <= 4; offset += 1) {
@@ -125,6 +165,7 @@ export function parseLadderCsv(csv: string): LadderWeek[] {
       }
 
       if (!box.players.length) continue;
+      box.setResults = inferConfirmedSetResults(box.players);
       const week = weekMap.get(key) || { date: displayDate(key), dateKey: key, boxes: [], completed: false };
       week.boxes.push(box);
       weekMap.set(key, week);
@@ -162,6 +203,7 @@ export function parseLadderCsv(csv: string): LadderWeek[] {
 
 function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
   const histories = new Map<string, PlayerResult[]>();
+  const setRecords = new Map<string, { played: number; won: number }>();
   for (const week of weeks) {
     for (const box of week.boxes) {
       for (const player of box.players) {
@@ -169,21 +211,40 @@ function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
         history.push(player);
         histories.set(player.name, history);
       }
+      if (week.completed) {
+        for (const set of box.setResults) {
+          const winningGames = Math.max(...set.teams.map((team) => team.games));
+          for (const team of set.teams) {
+            for (const name of team.players) {
+              const player = box.players.find((candidate) => candidate.name === name);
+              if (!player || player.substitute) continue;
+              const record = setRecords.get(name) || { played: 0, won: 0 };
+              record.played += 1;
+              if (team.games === winningGames) record.won += 1;
+              setRecords.set(name, record);
+            }
+          }
+        }
+      }
     }
   }
 
   return [...histories.entries()]
     .map(([name, history]) => {
       const played = history.filter((item) => item.total !== null);
+      const setRecord = setRecords.get(name) || { played: 0, won: 0 };
       const totalGames = played.reduce((sum, item) => sum + (item.total || 0), 0);
       const ordered = [...history].sort((a, b) => a.dateKey.localeCompare(b.dateKey));
       let streak = 0;
       for (let i = played.length - 1; i >= 0; i -= 1) {
-        if (played[i].movement !== "UP") break;
+        if (played[i].substitute || played[i].movement !== "UP") break;
         streak += 1;
       }
       return {
         name,
+        rank: null,
+        highestRank: null,
+        rankingHistory: [],
         currentBox: ordered.at(-1)?.box || 0,
         highestBox: Math.min(...history.map((item) => item.box)),
         lowestBox: Math.max(...history.map((item) => item.box)),
@@ -191,6 +252,8 @@ function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
         promotions: played.filter((item) => item.movement === "UP").length,
         demotions: played.filter((item) => item.movement === "DOWN").length,
         stays: played.filter((item) => item.movement === "STAY").length,
+        setsPlayed: setRecord.played,
+        setsWon: setRecord.won,
         totalGames,
         averageGames: played.length ? totalGames / played.length : 0,
         streak,
@@ -200,34 +263,98 @@ function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
     .sort((a, b) => a.currentBox - b.currentBox || a.name.localeCompare(b.name));
 }
 
-export function projectNextWeek(latest: LadderWeek | null): LadderWeek | null {
-  if (!latest) return null;
+function playerWeekScore(week: LadderWeek, name: string): number {
+  const result = week.boxes.flatMap((box) => box.players).find((player) => player.name === name);
+  return !result || result.substitute || result.total === null ? 0 : result.total;
+}
+
+export function buildClubRanking(completedWeeks: LadderWeek[]): ClubRankingEntry[] {
+  const latest = completedWeeks.at(-1);
+  if (!latest) return [];
   const maxBox = Math.max(...latest.boxes.map((box) => box.number));
-  const destinations = new Map<number, PlayerResult[]>();
+  const destinations = new Map<number, Array<{ player: PlayerResult; priority: number }>>();
 
   for (const box of latest.boxes) {
     for (const player of box.players) {
       const delta = player.movement === "UP" ? -1 : player.movement === "DOWN" ? 1 : 0;
       const destination = Math.max(1, Math.min(maxBox, player.box + delta));
-      const projected = { ...player, box: destination, rawScore: "", scores: [], total: null, movement: "" as Movement };
-      destinations.set(destination, [...(destinations.get(destination) || []), projected]);
+      const priority = destination > player.box || (destination === player.box && player.movement === "UP")
+        ? 0
+        : destination < player.box || (destination === player.box && player.movement === "DOWN")
+          ? 2
+          : 1;
+      destinations.set(destination, [...(destinations.get(destination) || []), { player, priority }]);
     }
   }
 
-  const boxes = [...destinations.entries()]
-    .map(([number, players]) => {
-      const source = latest.boxes.find((box) => box.number === number);
-      return { number, court: source?.court || "TBD", time: source?.time || "TBD", day: source?.day || "", players };
-    })
-    .sort((a, b) => a.number - b.number);
+  const recentFirst = [...completedWeeks].reverse();
+  return [...destinations.entries()]
+    .sort(([left], [right]) => left - right)
+    .flatMap(([box, entries]) => entries
+      .sort((left, right) => {
+        if (left.priority !== right.priority) return left.priority - right.priority;
+        for (const week of recentFirst) {
+          const scoreDifference = playerWeekScore(week, right.player.name) - playerWeekScore(week, left.player.name);
+          if (scoreDifference) return scoreDifference;
+        }
+        return left.player.name.localeCompare(right.player.name);
+      })
+      .map(({ player }, index) => ({
+        name: player.name,
+        rank: ((box - 1) * 4) + index + 1,
+        box,
+        movement: player.movement,
+      })));
+}
 
-  return { date: "Next week", dateKey: "projected", boxes, completed: false };
+export function buildHeadToHeadRecord(weeks: LadderWeek[], leftName: string, rightName: string): HeadToHeadRecord {
+  const record: HeadToHeadRecord = {
+    sharedSessions: 0,
+    setsTogether: 0,
+    setsAgainst: 0,
+    leftSetsWonAgainst: 0,
+    rightSetsWonAgainst: 0,
+  };
+
+  for (const week of weeks.filter((candidate) => candidate.completed)) {
+    for (const box of week.boxes) {
+      const leftPlayer = box.players.find((player) => player.name === leftName);
+      const rightPlayer = box.players.find((player) => player.name === rightName);
+      if (!leftPlayer || !rightPlayer || leftPlayer.substitute || rightPlayer.substitute) continue;
+      record.sharedSessions += 1;
+
+      for (const set of box.setResults) {
+        const leftTeam = set.teams.find((team) => team.players.includes(leftName));
+        const rightTeam = set.teams.find((team) => team.players.includes(rightName));
+        if (!leftTeam || !rightTeam) continue;
+        if (leftTeam === rightTeam) {
+          record.setsTogether += 1;
+          continue;
+        }
+        record.setsAgainst += 1;
+        if (leftTeam.games > rightTeam.games) record.leftSetsWonAgainst += 1;
+        if (rightTeam.games > leftTeam.games) record.rightSetsWonAgainst += 1;
+      }
+    }
+  }
+  return record;
 }
 
 export function buildLadderData(csv: string, source: "live" | "static" | "sample" = "live"): LadderData {
   const weeks = parseLadderCsv(csv);
   const completedWeeks = weeks.filter((week) => week.completed);
   const latestCompleted = completedWeeks.at(-1) || null;
+  const ranking = buildClubRanking(completedWeeks);
+  const rankingByName = new Map(ranking.map((entry) => [entry.name, entry]));
+  const rankingHistories = new Map<string, PlayerProfile["rankingHistory"]>();
+  completedWeeks.forEach((week, index) => {
+    for (const entry of buildClubRanking(completedWeeks.slice(0, index + 1))) {
+      rankingHistories.set(entry.name, [
+        ...(rankingHistories.get(entry.name) || []),
+        { date: week.date, dateKey: week.dateKey, week: index + 1, rank: entry.rank, box: entry.box },
+      ]);
+    }
+  });
   const upcoming = latestCompleted
     ? weeks.find((week) => week.dateKey > latestCompleted.dateKey && week.boxes.some((box) => box.players.length)) || null
     : weeks.at(-1) || null;
@@ -235,8 +362,15 @@ export function buildLadderData(csv: string, source: "live" | "static" | "sample
     weeks,
     latestCompleted,
     upcoming,
-    projected: projectNextWeek(latestCompleted),
-    profiles: buildProfiles(weeks),
+    ranking,
+    profiles: buildProfiles(weeks).map((profile) => {
+      const position = rankingByName.get(profile.name);
+      const rankingHistory = rankingHistories.get(profile.name) || [];
+      const highestRank = rankingHistory.length ? Math.min(...rankingHistory.map((entry) => entry.rank)) : null;
+      return position
+        ? { ...profile, rank: position.rank, currentBox: position.box, highestRank, rankingHistory }
+        : { ...profile, highestRank, rankingHistory };
+    }),
     updatedAt: new Date().toISOString(),
     source,
   };

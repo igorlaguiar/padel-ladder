@@ -15,12 +15,23 @@ export interface PlayerResult {
   dateKey: string;
 }
 
+export interface ConfirmedSetTeam {
+  players: [string, string];
+  games: number;
+}
+
+export interface ConfirmedSetResult {
+  number: number;
+  teams: [ConfirmedSetTeam, ConfirmedSetTeam];
+}
+
 export interface LadderBox {
   number: number;
   court: string;
   time: string;
   day: string;
   players: PlayerResult[];
+  setResults: ConfirmedSetResult[];
 }
 
 export interface LadderWeek {
@@ -32,6 +43,9 @@ export interface LadderWeek {
 
 export interface PlayerProfile {
   name: string;
+  rank: number | null;
+  highestRank: number | null;
+  rankingHistory: Array<{ date: string; dateKey: string; week: number; rank: number; box: number }>;
   currentBox: number;
   highestBox: number;
   lowestBox: number;
@@ -39,17 +53,34 @@ export interface PlayerProfile {
   promotions: number;
   demotions: number;
   stays: number;
+  setsPlayed: number;
+  setsWon: number;
   totalGames: number;
   averageGames: number;
   streak: number;
   history: PlayerResult[];
 }
 
+export interface ClubRankingEntry {
+  name: string;
+  rank: number;
+  box: number;
+  movement: Movement;
+}
+
+export interface HeadToHeadRecord {
+  sharedSessions: number;
+  setsTogether: number;
+  setsAgainst: number;
+  leftSetsWonAgainst: number;
+  rightSetsWonAgainst: number;
+}
+
 export interface LadderData {
   weeks: LadderWeek[];
   latestCompleted: LadderWeek | null;
   upcoming: LadderWeek | null;
-  projected: LadderWeek | null;
+  ranking: ClubRankingEntry[];
   profiles: PlayerProfile[];
   updatedAt: string;
   source: "live" | "static" | "sample";
