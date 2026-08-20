@@ -25,13 +25,80 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ConfirmedSetResult, LadderBox, LadderData, LadderWeek, Movement, PlayerProfile, PlayerResult } from "@/lib/types";
 import { buildHeadToHeadRecord, sortBoxPlayers } from "@/lib/ladder";
 import { buildWeeklyAwards, type WeeklyAwardKind } from "@/lib/weeklyAwards";
 
 type View = "ladder" | "ranking" | "stats" | "compare";
 type LadderMode = "upcoming" | "results";
+
+const heroScoreFrames = [
+  { point: "0 - 0", first: "3", second: "2" },
+  { point: "0 - 15", first: "3", second: "2" },
+  { point: "0 - 30", first: "3", second: "2" },
+  { point: "15 - 30", first: "3", second: "2" },
+  { point: "15 - 40", first: "3", second: "2" },
+  { point: "GAME", first: "4", second: "2" },
+];
+
+function HeroScoreboard() {
+  const [frame, setFrame] = useState(0);
+  const [showMatch, setShowMatch] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
+  const rootRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || !("IntersectionObserver" in window)) return;
+    const observer = new IntersectionObserver(([entry]) => setIsVisible(entry.isIntersecting), { threshold: 0.1 });
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!isVisible || showMatch) return;
+    const interval = window.setInterval(() => setFrame((current) => (current + 1) % heroScoreFrames.length), 3600);
+    return () => window.clearInterval(interval);
+  }, [isVisible, showMatch]);
+
+  const score = heroScoreFrames[frame];
+
+  return (
+    <button
+      ref={rootRef}
+      type="button"
+      className="hero-scoreboard"
+      aria-label={showMatch ? "Match result: game, set, match, 4 to 2. Select to return to the live score." : "Live match score. Select to show the match result."}
+      aria-pressed={showMatch}
+      onClick={() => setShowMatch((current) => !current)}
+    >
+      <span className="scoreboard-court" aria-hidden="true">
+        <span className="court-net" />
+        <span className="court-service-line" />
+      </span>
+      <span className="scoreboard-card" aria-hidden="true">
+        <span className="scoreboard-meta">
+          <span><i /> LIVE</span>
+          <span>COURT 03</span>
+        </span>
+        <span className="scoreboard-set">SET 2</span>
+        <span className="scoreboard-score" key={frame}>
+          <span>{score.first}</span>
+          <i>–</i>
+          <span>{score.second}</span>
+        </span>
+        <span className="scoreboard-point" key={`point-${frame}`}>{score.point}</span>
+        <span className="scoreboard-prompt">FINAL</span>
+        <span className="scoreboard-match">
+          <small>FINAL</small>
+          <strong>GAME<br />SET<br />MATCH</strong>
+          <i>4–2</i>
+        </span>
+      </span>
+    </button>
+  );
+}
 
 const initials = (name: string) =>
   name
@@ -859,7 +926,7 @@ export function LadderApp({ data }: { data: LadderData }) {
           <h1>Find your box.<br /><em>Climb the ladder.</em></h1>
           <p>Weekly positions, results, player form, and the race up the ladder.</p>
         </div>
-        <div className="hero-orbit" aria-hidden="true"><span>UP</span><span>STAY</span><span>DOWN</span><strong>↗</strong></div>
+        <HeroScoreboard />
       </section>
 
       <section className="search-wrap">
