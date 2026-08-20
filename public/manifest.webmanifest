@@ -1,9 +1,16 @@
 {
-  "name": "Padel Ladder",
-  "short_name": "Ladder",
+  "name": "MyLeague.Live",
+  "short_name": "My League",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f4f1e8",
   "theme_color": "#11251e",
-  "icons": []
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }

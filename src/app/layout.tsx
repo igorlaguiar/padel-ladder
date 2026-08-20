@@ -12,6 +12,14 @@ export const metadata: Metadata = {
   title: "Padel Ladder",
   description: "Live boxes, player movement, statistics, and match history.",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icon.png",
+    apple: "/icon.png",
+  },
+  openGraph: {
+    title: "MyLeague.Live",
+    description: "Upcoming matches, weekly results, league stats and more.",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

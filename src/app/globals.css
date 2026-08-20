@@ -154,6 +154,7 @@ button { color: inherit; }
 .weekly-award-honorable > div { display: flex; flex-wrap: wrap; gap: 3px 10px; margin-top: 3px; }
 .weekly-award-honorable strong { font-size: 11px; }
 .box-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.ingested-at { color: var(--muted); margin: 20px 0 0; font-size: 12px; text-align: center; }
 .box-card { align-self: start; scroll-margin-top: 140px; background: var(--white); border: 1px solid rgba(17,37,30,.17); box-shadow: 0 8px 24px rgba(17,37,30,.04); min-width: 0; }
 .box-head { height: 78px; background: var(--ink); color: var(--white); display: flex; align-items: center; justify-content: space-between; padding: 14px 17px; }
 .box-head > div:first-child { display: flex; align-items: baseline; gap: 7px; }
@@ -348,7 +349,7 @@ footer { max-width: 1380px; margin: 0 auto; padding: 26px 28px 40px; border-top:
   .nav-label-desktop { display: none; }
   .nav-label-mobile { display: inline; }
   .hero { min-height: 340px; padding: 24px 20px 68px; }
-  .hero h1 { font-size: clamp(49px, 15vw, 72px); white-space: normal; }
+  .hero h1 { font-size: clamp(37px, 11.5vw, 45px); white-space: nowrap; }
   .hero h1 { margin-top: 19px; margin-bottom: 20px; }
   .hero p { font-size: 14px; max-width: 320px; }
   .hero-scoreboard { display: none; }

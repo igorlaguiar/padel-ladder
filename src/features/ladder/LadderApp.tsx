@@ -1059,7 +1059,7 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
           <div className="section-head">
             <div>
               <h2>Upcoming matches</h2>
-              <p>{week?.date || "Date to be announced"} · <IngestedAt value={data.updatedAt} /></p>
+              <p>{week?.date || "Date to be announced"}</p>
             </div>
             <Link className="ladder-view-switch" href="/results">View past results <ArrowRight size={17} /></Link>
           </div>
@@ -1072,6 +1072,7 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
             showWeekday
             onSelect={setSelectedName}
           />
+          <p className="ingested-at"><IngestedAt value={data.updatedAt} /></p>
         </> : null}
 
         {section === "results" ? <>
