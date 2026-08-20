@@ -600,82 +600,97 @@ function ProfilePanel({
     ctx.fillStyle = "#a6b1a9";
     ctx.font = "500 23px Arial";
     ctx.fillText("SEASON TO DATE", 72, 895);
-    ctx.fillStyle = "#f4f1e8";
-    drawFitText(
-      `${profile.promotions} moves up  ·  ${profile.setsWon} sets won  ·  ${profile.averageGames.toFixed(1)} average games per week won`,
-      72,
-      953,
-      936,
-      34,
-      700,
-    );
-
-    const drawChartFrame = (title: string, x: number, y: number, width: number, height: number) => {
+    const seasonMetrics = [
+      { value: String(profile.promotions), label: "MOVES UP" },
+      { value: String(profile.setsWon), label: "SETS WON" },
+      { value: profile.averageGames.toFixed(1), label: "GAMES WON/WK" },
+    ];
+    seasonMetrics.forEach((metric, index) => {
+      const x = 72 + index * 318;
+      if (index) {
+        ctx.strokeStyle = "#3a4e46";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x - 28, 925);
+        ctx.lineTo(x - 28, 1018);
+        ctx.stroke();
+      }
       ctx.fillStyle = "#f4f1e8";
-      ctx.fillRect(x, y, width, height);
-      ctx.fillStyle = "#647269";
-      ctx.font = "700 19px Arial";
-      ctx.fillText(title, x + 26, y + 36);
-      return { x: x + 26, y: y + 62, width: width - 52, height: height - 88 };
-    };
-    const boxArea = drawChartFrame("PLAYER BOX PERFORMANCE", 72, 1015, 456, 300);
-    const boxPoints = profile.history.filter((item) => item.movement).slice(0, 6).reverse();
-    if (boxPoints.length) {
-      const minBox = Math.min(...boxPoints.map((item) => item.box));
-      const maxBox = Math.max(...boxPoints.map((item) => item.box));
-      ctx.strokeStyle = "#b8c2bc";
+      ctx.font = "800 46px Arial";
+      ctx.fillText(metric.value, x, 970);
+      ctx.fillStyle = "#a6b1a9";
+      ctx.font = "700 18px Arial";
+      ctx.fillText(metric.label, x, 1010);
+    });
+
+    ctx.fillStyle = "#a6b1a9";
+    ctx.font = "700 19px Arial";
+    ctx.fillText("RECENT FORM", 72, 1094);
+    ctx.textAlign = "right";
+    ctx.font = "500 17px Arial";
+    ctx.fillText("LAST 6 WEEKS", 1008, 1094);
+    ctx.textAlign = "left";
+    ctx.strokeStyle = "#3a4e46";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(72, 1280);
+    ctx.lineTo(1008, 1280);
+    ctx.stroke();
+
+    const drawTrendRow = (label: string, values: number[], top: number) => {
+      const plotX = 218;
+      const plotWidth = 760;
+      const plotTop = top + 4;
+      const plotHeight = 94;
+      ctx.fillStyle = "#f4f1e8";
+      ctx.font = "700 24px Arial";
+      ctx.fillText(label, 72, top + 60);
+
+      ctx.strokeStyle = "#3a4e46";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(boxArea.x, boxArea.y + boxArea.height / 2);
-      ctx.lineTo(boxArea.x + boxArea.width, boxArea.y + boxArea.height / 2);
+      ctx.moveTo(plotX, plotTop + plotHeight / 2);
+      ctx.lineTo(plotX + plotWidth, plotTop + plotHeight / 2);
       ctx.stroke();
-      boxPoints.forEach((item, index) => {
-        const x = boxArea.x + (boxPoints.length === 1 ? boxArea.width / 2 : (index * boxArea.width) / (boxPoints.length - 1));
-        const y = maxBox === minBox ? boxArea.y + boxArea.height / 2 : boxArea.y + ((item.box - minBox) * boxArea.height) / (maxBox - minBox);
-        ctx.fillStyle = item.movement === "UP" ? "#d9ff57" : item.movement === "DOWN" ? "#ff6b4a" : "#b7efdc";
-        ctx.beginPath();
-        ctx.arc(x, y, 18, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#11251e";
-        ctx.textAlign = "center";
-        ctx.font = "800 17px Arial";
-        ctx.fillText(String(item.box), x, y + 6);
-      });
-    }
-    const rankArea = drawChartFrame("PLAYER RANK", 552, 1015, 456, 300);
-    const rankPoints = profile.rankingHistory.slice(-8);
-    if (rankPoints.length) {
-      const minRank = Math.min(...rankPoints.map((item) => item.rank));
-      const maxRank = Math.max(...rankPoints.map((item) => item.rank));
-      const coordinates = rankPoints.map((item, index) => ({
-        rank: item.rank,
-        week: item.week,
-        x: rankArea.x + (rankPoints.length === 1 ? rankArea.width / 2 : (index * rankArea.width) / (rankPoints.length - 1)),
-        y: minRank === maxRank ? rankArea.y + rankArea.height / 2 : rankArea.y + ((item.rank - minRank) * rankArea.height) / (maxRank - minRank),
+      if (!values.length) return;
+
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const coordinates = values.map((point, index) => ({
+        x: plotX + (values.length === 1 ? plotWidth : (index * plotWidth) / (values.length - 1)),
+        y: min === max ? plotTop + plotHeight / 2 : plotTop + ((point - min) * plotHeight) / (max - min),
       }));
-      ctx.strokeStyle = "#11251e";
+      if (values.length === 1) coordinates[0].x = plotX + plotWidth;
+      ctx.strokeStyle = "#f4f1e8";
       ctx.lineWidth = 4;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
       ctx.beginPath();
       coordinates.forEach((point, index) => index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
       ctx.stroke();
-      coordinates.forEach((point) => {
-        ctx.fillStyle = "#d9ff57";
+      coordinates.forEach((point, index) => {
+        const current = index === coordinates.length - 1;
+        ctx.fillStyle = current ? "#d9ff57" : "#f4f1e8";
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 13, 0, Math.PI * 2);
+        ctx.arc(point.x, point.y, 28, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = "#11251e";
-        ctx.lineWidth = 2;
+        ctx.lineWidth = current ? 4 : 3;
         ctx.stroke();
         ctx.fillStyle = "#11251e";
         ctx.textAlign = "center";
-        ctx.font = "800 14px Arial";
-        ctx.fillText(String(point.rank), point.x, point.y + 5);
-        ctx.fillStyle = "#647269";
-        ctx.font = "700 13px Arial";
-        ctx.fillText(`W${point.week}`, point.x, rankArea.y + rankArea.height + 22);
+        ctx.font = "800 22px Arial";
+        ctx.fillText(String(values[index]), point.x, point.y + 8);
       });
-    }
-    ctx.textAlign = "left";
+      ctx.textAlign = "left";
+    };
+    const recentRankings = profile.rankingHistory.slice(-6);
+    const boxPoints = recentRankings.map((item) => item.box);
+    const rankPoints = recentRankings.map((item) => item.rank);
+    drawTrendRow("BOX", boxPoints, 1130);
+    drawTrendRow("RANK", rankPoints, 1320);
+    ctx.lineJoin = "miter";
+    ctx.lineCap = "butt";
 
     ctx.strokeStyle = "#3a4e46";
     ctx.lineWidth = 2;
@@ -967,7 +982,7 @@ function CompareView({ profiles, weeks, onSelect }: { profiles: PlayerProfile[];
       ctx.fillText(String(leftValue), 72, y);
       ctx.textAlign = "center";
       ctx.fillStyle = "#a6b1a9";
-      ctx.font = "500 18px Arial";
+      ctx.font = "600 24px Arial";
       ctx.fillText(label.toUpperCase(), 540, y - 2);
       ctx.fillStyle = "#f4f1e8";
       ctx.font = "800 30px Arial";
