@@ -36,12 +36,11 @@ export type LadderSection = "week" | "results" | "stats" | "head-to-head";
 type StatsMode = "leaders" | "ranking";
 
 const heroScoreFrames = [
-  { point: "0 - 0", first: "3", second: "2" },
-  { point: "0 - 15", first: "3", second: "2" },
-  { point: "0 - 30", first: "3", second: "2" },
-  { point: "15 - 30", first: "3", second: "2" },
-  { point: "15 - 40", first: "3", second: "2" },
-  { point: "GAME", first: "4", second: "2" },
+  { point: "0 - 0", first: "5", second: "2" },
+  { point: "0 - 15", first: "5", second: "2" },
+  { point: "0 - 30", first: "5", second: "2" },
+  { point: "15 - 30", first: "5", second: "2" },
+  { point: "15 - 40", first: "5", second: "2", matchPoint: true },
 ];
 
 function HeroScoreboard() {
@@ -71,7 +70,7 @@ function HeroScoreboard() {
       ref={rootRef}
       type="button"
       className="hero-scoreboard"
-      aria-label={showMatch ? "Match result: game, set, match, 4 to 2. Select to return to the live score." : "Live match score. Select to show the match result."}
+      aria-label={showMatch ? "Semi-final result: 6 to 4, 6 to 2. Select to return to the live score." : "Live semi-final score. Select to show the match result."}
       aria-pressed={showMatch}
       onClick={() => setShowMatch((current) => !current)}
     >
@@ -91,11 +90,12 @@ function HeroScoreboard() {
           <span>{score.second}</span>
         </span>
         <span className="scoreboard-point" key={`point-${frame}`}>{score.point}</span>
-        <span className="scoreboard-prompt">FINAL</span>
+        {score.matchPoint ? <span className="scoreboard-match-point" key={`match-point-${frame}`}>MATCH POINT</span> : null}
+        <span className="scoreboard-prompt">SEMI-FINAL</span>
         <span className="scoreboard-match">
-          <small>FINAL</small>
+          <small>SEMI-FINAL</small>
           <strong>GAME<br />SET<br />MATCH</strong>
-          <i>4–2</i>
+          <i>6–4&nbsp;&nbsp;6–2</i>
         </span>
       </span>
     </button>
