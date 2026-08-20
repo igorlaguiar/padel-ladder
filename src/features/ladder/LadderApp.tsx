@@ -100,6 +100,27 @@ function HeroScoreboard() {
   );
 }
 
+function HeroOrbit() {
+  const [isVisible, setIsVisible] = useState(true);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || !("IntersectionObserver" in window)) return;
+    const observer = new IntersectionObserver(([entry]) => setIsVisible(entry.isIntersecting), { threshold: 0.1 });
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={rootRef} className="hero-orbit" data-visible={isVisible} aria-hidden="true">
+      <span>UP</span>
+      <span>STAY</span>
+      <span>DOWN</span>
+    </div>
+  );
+}
+
 const initials = (name: string) =>
   name
     .replace(/[^a-zA-Z ]/g, "")
@@ -927,6 +948,7 @@ export function LadderApp({ data }: { data: LadderData }) {
           <p>Weekly positions, results, player form, and the race up the ladder.</p>
         </div>
         <HeroScoreboard />
+        <HeroOrbit />
       </section>
 
       <section className="search-wrap">
