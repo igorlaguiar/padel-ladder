@@ -2,7 +2,7 @@ import { LadderApp, type LadderSection } from "@/features/ladder/LadderApp";
 import { buildLadderData } from "@/lib/ladder";
 
 const CSV_URL =
-  "https://docs.google.com/spreadsheets/d/1RLhuK8yaBySLmfqh_0wU5oJ_cryP7CcpDTJkw35k0KQ/export?format=csv&gid=1294873893";
+  "https://docs.google.com/spreadsheets/d/1R5ndg23EqVhadgBmcHeVIMiGYu8pRFWXkAcZ1oeIoFo/export?format=csv&gid=1294873893";
 
 export async function LadderRoute({ section }: { section: LadderSection }) {
   try {
