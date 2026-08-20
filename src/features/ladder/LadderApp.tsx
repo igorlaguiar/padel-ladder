@@ -24,6 +24,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import type { ConfirmedSetResult, LadderBox, LadderData, LadderWeek, Movement, PlayerProfile, PlayerResult } from "@/lib/types";
 import { buildHeadToHeadRecord, sortBoxPlayers } from "@/lib/ladder";
@@ -204,7 +205,7 @@ function BoxCard({
     .filter((profile) => profile.rank !== null)
     .map((profile) => ({ name: profile.name, rank: profile.rank!, box: profile.currentBox, movement: "" as Movement })));
   return (
-    <article className="box-card">
+    <article className="box-card" id={`box-${box.number}`}>
       <header className="box-head">
         <div>
           <span>BOX</span>
@@ -329,7 +330,7 @@ function RankingTrend({ history }: { history: PlayerProfile["rankingHistory"] })
 
   return (
     <div className="ranking-trend">
-      <svg viewBox="0 0 420 118" role="img" aria-label={`Weekly club ranking from ${points[0].rank} to ${points.at(-1)?.rank}`}>
+      <svg viewBox="0 0 420 118" role="img" aria-label={`Weekly ladder ranking from ${points[0].rank} to ${points.at(-1)?.rank}`}>
         <line x1="24" y1="86" x2="396" y2="86" />
         {coordinates.length > 1 ? <polyline points={pointList} /> : null}
         {coordinates.map((point) => (
@@ -344,7 +345,19 @@ function RankingTrend({ history }: { history: PlayerProfile["rankingHistory"] })
   );
 }
 
-function ProfilePanel({ profile, weeks, onClose }: { profile: PlayerProfile; weeks: LadderWeek[]; onClose: () => void }) {
+function ProfilePanel({
+  profile,
+  weeks,
+  canViewCurrentBox,
+  onViewCurrentBox,
+  onClose,
+}: {
+  profile: PlayerProfile;
+  weeks: LadderWeek[];
+  canViewCurrentBox: boolean;
+  onViewCurrentBox: () => void;
+  onClose: () => void;
+}) {
   const latest = profile.history[0];
   const trend = profile.history
     .filter((item) => item.movement)
@@ -407,7 +420,7 @@ function ProfilePanel({ profile, weeks, onClose }: { profile: PlayerProfile; wee
     ctx.textAlign = "right";
     ctx.fillStyle = "#a6b1a9";
     ctx.font = "500 24px Arial";
-    ctx.fillText("CLUB RANKING", 1008, 116);
+    ctx.fillText("LADDER RANKING", 1008, 116);
     ctx.textAlign = "left";
     ctx.fillStyle = "#f4f1e8";
     drawFitText(profile.name, 72, 285, 936, 82, 700);
@@ -423,7 +436,7 @@ function ProfilePanel({ profile, weeks, onClose }: { profile: PlayerProfile; wee
     ctx.fillRect(72, 390, 360, 430);
     ctx.fillStyle = "#11251e";
     ctx.font = "700 24px Arial";
-    ctx.fillText("CLUB RANK", 112, 470);
+    ctx.fillText("LADDER RANK", 112, 470);
     ctx.font = "800 160px Arial";
     ctx.fillText(profile.rank ? `#${profile.rank}` : "—", 105, 650);
     ctx.font = "700 31px Arial";
@@ -513,21 +526,28 @@ function ProfilePanel({ profile, weeks, onClose }: { profile: PlayerProfile; wee
         </div>
         <div className="profile-position">
           <div className="profile-rank-highlight">
-            <span>CLUB RANK</span>
+            <span>LADDER RANK</span>
             <strong>{profile.rank ? `#${profile.rank}` : "—"}</strong>
           </div>
-          <div className="profile-box-position">
+          <button
+            type="button"
+            className="profile-box-position"
+            onClick={onViewCurrentBox}
+            disabled={!canViewCurrentBox}
+            aria-label={`View upcoming matches for Box ${profile.currentBox}`}
+          >
             <span>CURRENT BOX</span>
             <strong>BOX {profile.currentBox}</strong>
             <small>{latest?.time || ""} · Court {latest?.court || "TBD"}</small>
-          </div>
+            {canViewCurrentBox ? <span className="profile-box-link">VIEW BOX <ArrowRight size={14} /></span> : null}
+          </button>
         </div>
         <button className="share-card-button" onClick={shareProfile}><Share2 size={18} /> Share my ladder card</button>
         <div className="profile-stats">
           <div><strong>{profile.highestBox}</strong><span>Highest box</span></div>
           <div><strong>{profile.promotions}</strong><span>Moves up</span></div>
-          <div><strong>{profile.rank ? `#${profile.rank}` : "—"}</strong><span>Current ranking</span></div>
-          <div><strong>{profile.highestRank ? `#${profile.highestRank}` : "—"}</strong><span>Highest ranking</span></div>
+          <div><strong>{profile.rank ? `#${profile.rank}` : "—"}</strong><span>Current ladder rank</span></div>
+          <div><strong>{profile.highestRank ? `#${profile.highestRank}` : "—"}</strong><span>Highest ladder rank</span></div>
           <div><strong>{profile.weeksPlayed}</strong><span>Weeks played</span></div>
           <div><strong>{profile.setsWon}</strong><span>Sets won</span></div>
         </div>
@@ -545,7 +565,7 @@ function ProfilePanel({ profile, weeks, onClose }: { profile: PlayerProfile; wee
               </span>
             ))}
           </div>
-          <h3>Weekly Ranking</h3>
+          <h3>Weekly Ladder Rank</h3>
           <RankingTrend history={profile.rankingHistory} />
           <h3>Results</h3>
           <div className="history-list">
@@ -582,15 +602,14 @@ function RankingView({ profiles, onSelect }: { profiles: PlayerProfile[]; onSele
 
   return (
     <div className="ranking-table">
-      <header><span>RANK</span><span>PLAYER</span><span>BOX</span><span>LAST 3</span></header>
+      <header><span>RANK</span><span>PLAYER</span><span>LAST 5</span></header>
       {ranked.map((profile) => {
-        const recentResults = lastCompletedResults(profile);
+        const recentResults = profile.history.filter((item) => item.movement).slice(0, 5);
         return (
           <button key={profile.name} onClick={() => onSelect(profile.name)}>
             <strong className="club-rank">#{profile.rank}</strong>
             <span className="ranking-player"><span className="avatar small">{initials(profile.name)}</span><strong>{profile.name}</strong></span>
-            <strong className="ranking-box-number">{profile.currentBox}</strong>
-            <span className="recent-movements" aria-label={`${profile.name} last three results`}>
+            <span className="recent-movements" aria-label={`${profile.name} last five results`}>
               {recentResults.map((result) => (
                 <span key={`${result.dateKey}-${result.box}`} className={`movement-badge ${result.movement.toLowerCase()}`} title={`${result.date}: ${result.movement.toLowerCase()}`}>
                   {movementIcon(result.movement)}
@@ -807,6 +826,18 @@ export function LadderApp({ data }: { data: LadderData }) {
   const nextResultsWeek = resultsWeeks[resultsWeekIndex + 1];
   const week = ladderMode === "upcoming" ? data.upcoming : resultsWeek;
 
+  function viewUpcomingBox(box: number) {
+    if (!data.upcoming?.boxes.some((candidate) => candidate.number === box)) return;
+    setSelectedName(null);
+    setView("ladder");
+    setLadderMode("upcoming");
+    window.setTimeout(() => {
+      const boxId = `box-${box}`;
+      window.history.replaceState(null, "", `#${boxId}`);
+      document.getElementById(boxId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  }
+
   const views: { id: View; label: string; icon: React.ReactNode }[] = [
     { id: "ladder", label: "Ladder", icon: <UsersRound size={18} /> },
     { id: "ranking", label: "Ranking", icon: <ListOrdered size={18} /> },
@@ -817,14 +848,15 @@ export function LadderApp({ data }: { data: LadderData }) {
   return (
     <main>
       <header className="site-header">
-        <button className="brand" onClick={() => setView("ladder")}><span className="brand-mark">P/</span><span>PADEL<br />LADDER</span></button>
-        <nav>{views.map((item) => <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}>{item.icon}{item.label}</button>)}</nav>
+        <button className="brand" onClick={() => setView("ladder")} aria-label="Open the ladder">
+          <Image className="header-logo" src="/my-league-live-logo.png" width={651} height={254} alt="My League Live" unoptimized />
+        </button>
       </header>
 
       <section className="hero">
         <div className="hero-copy">
-          <span className="eyebrow"><i /> LIVE LEAGUE</span>
-          <h1>Find your box.<br /><em>Make your move.</em></h1>
+          <span className="eyebrow"><i /> PADEL+PICKLE ST. LOUIS</span>
+          <h1>Find your box.<br /><em>Climb the ladder.</em></h1>
           <p>Weekly positions, results, player form, and the race up the ladder.</p>
         </div>
         <div className="hero-orbit" aria-hidden="true"><span>UP</span><span>STAY</span><span>DOWN</span><strong>↗</strong></div>
@@ -837,9 +869,11 @@ export function LadderApp({ data }: { data: LadderData }) {
         {searchResults.length ? <div className="search-results">{searchResults.map((profile) => <button key={profile.name} onClick={() => { setSelectedName(profile.name); setQuery(""); }}><span className="avatar small">{initials(profile.name)}</span><span><strong>{profile.name}</strong><small>{profile.rank ? `#${profile.rank} in club · ` : ""}Box {profile.currentBox}</small></span><ChevronRight size={18} /></button>)}</div> : null}
       </section>
 
-      <section className="content-shell">
-        <div className="mobile-tabs">{views.map((item) => <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}>{item.icon}<span>{item.label}</span></button>)}</div>
+      <nav className="view-tabs" aria-label="Ladder sections">
+        {views.map((item) => <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}>{item.icon}<span>{item.label}</span></button>)}
+      </nav>
 
+      <section className="content-shell">
         {view === "ladder" ? <>
           <div className="section-head">
             <div>
@@ -893,7 +927,7 @@ export function LadderApp({ data }: { data: LadderData }) {
 
         {view === "ranking" ? <>
           <div className="section-head">
-            <div><span className="eyebrow">CLUB STANDINGS</span><h2>Ladder ranking</h2><p>Ranks follow box order. Movement sets the first and last positions. Recent non-sub game totals separate the two STAY players.</p></div>
+            <div><span className="eyebrow">STANDINGS</span><h2>Ladder ranking</h2><p>Your ladder rank is your place in the next round of boxes. Movement sets the first and last positions in each box. Recent non-sub game totals order the players who stay.</p></div>
           </div>
           <RankingView profiles={data.profiles} onSelect={setSelectedName} />
         </> : null}
@@ -903,7 +937,15 @@ export function LadderApp({ data }: { data: LadderData }) {
       </section>
 
       <footer><span className="brand-mark">P/</span><span>Updated when the league sheet is rebuilt.</span><span>{data.profiles.length} players · {data.weeks.length} weeks</span></footer>
-      {selected ? <ProfilePanel profile={selected} weeks={data.weeks} onClose={() => setSelectedName(null)} /> : null}
+      {selected ? (
+        <ProfilePanel
+          profile={selected}
+          weeks={data.weeks}
+          canViewCurrentBox={Boolean(data.upcoming?.boxes.some((box) => box.number === selected.currentBox))}
+          onViewCurrentBox={() => viewUpcomingBox(selected.currentBox)}
+          onClose={() => setSelectedName(null)}
+        />
+      ) : null}
     </main>
   );
 }
