@@ -61,7 +61,7 @@ export function parseScore(raw: string): number[] {
   const primary = raw.split("(")[0].trim();
   if (!primary) return [];
   const separated = primary
-    .split(/[,;\s]+/)
+    .split(/[,.;\s]+/)
     .filter(Boolean);
   if (separated.length === 1 && /^\d{3}$/.test(separated[0])) return separated[0].split("").map(Number);
   return separated
@@ -238,7 +238,7 @@ export function parseLadderCsv(csv: string): LadderWeek[] {
 
 function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
   const histories = new Map<string, PlayerResult[]>();
-  const setRecords = new Map<string, { played: number; won: number }>();
+  const setWins = new Map<string, number>();
   for (const week of weeks) {
     for (const box of week.boxes) {
       for (const player of box.players) {
@@ -253,10 +253,7 @@ function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
             for (const name of team.players) {
               const player = box.players.find((candidate) => candidate.name === name);
               if (!player || !isRosterStatAppearance(player)) continue;
-              const record = setRecords.get(name) || { played: 0, won: 0 };
-              record.played += 1;
-              if (team.games === winningGames) record.won += 1;
-              setRecords.set(name, record);
+              if (team.games === winningGames) setWins.set(name, (setWins.get(name) || 0) + 1);
             }
           }
         }
@@ -268,7 +265,6 @@ function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
     .map(([name, history]) => {
       const played = history.filter(isRosterStatAppearance);
       const positioned = played.length ? played : history;
-      const setRecord = setRecords.get(name) || { played: 0, won: 0 };
       const totalGames = played.reduce((sum, item) => sum + (item.total || 0), 0);
       const ordered = [...history].sort((a, b) => a.dateKey.localeCompare(b.dateKey));
       let streak = 0;
@@ -288,8 +284,8 @@ function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
         promotions: played.filter((item) => item.movement === "UP").length,
         demotions: played.filter((item) => item.movement === "DOWN").length,
         stays: played.filter((item) => item.movement === "STAY").length,
-        setsPlayed: setRecord.played,
-        setsWon: setRecord.won,
+        setsPlayed: played.length * 3,
+        setsWon: setWins.get(name) || 0,
         totalGames,
         averageGames: played.length ? totalGames / played.length : 0,
         streak,

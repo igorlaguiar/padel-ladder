@@ -24,6 +24,7 @@ describe("parseScore", () => {
     expect(parseScore("6;4;7")).toEqual([6, 4, 7]);
     expect(parseScore("6; 4; 7")).toEqual([6, 4, 7]);
     expect(parseScore("6 4 7")).toEqual([6, 4, 7]);
+    expect(parseScore("6.4.7")).toEqual([6, 4, 7]);
     expect(parseScore("665")).toEqual([6, 6, 5]);
   });
 });
@@ -239,6 +240,16 @@ describe("buildLadderData", () => {
     expect(data.profiles.find((player) => player.name === "Evan Edge")?.rankingHistory[0]).toMatchObject({ week: 1, rank: 4 });
     expect(data.profiles.find((player) => player.name === "Alex Ace")?.promotions).toBe(1);
     expect(data.profiles.find((player) => player.name === "Alex Ace")).toMatchObject({ setsPlayed: 3, setsWon: 3, totalGames: 18 });
+  });
+
+  it("counts three sets played for a completed roster appearance even when team inference is ambiguous", () => {
+    const ambiguous = SAMPLE
+      .replace('"6,4,6",Blake Ball', '"6,6,6",Blake Ball')
+      .replace('"4,6,3",Casey Court', '"6,6,6",Casey Court')
+      .replace('"4,4,3",Drew Drop', '"6,6,6",Drew Drop');
+    const profile = buildLadderData(ambiguous).profiles.find((player) => player.name === "Alex Ace");
+
+    expect(profile).toMatchObject({ weeksPlayed: 1, setsPlayed: 3, setsWon: 0 });
   });
 
   it("treats a substitute week as zero when two STAY players are tied", () => {
