@@ -29,10 +29,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ConfirmedSetResult, LadderBox, LadderData, LadderWeek, Movement, PlayerProfile, PlayerResult } from "@/lib/types";
-import { buildHeadToHeadRecord, sortBoxPlayers } from "@/lib/ladder";
+import { boxHasResult, buildHeadToHeadRecord, sortBoxPlayers } from "@/lib/ladder";
+import { buildLeagueHighlights, type LeagueHighlightKind } from "@/lib/leagueHighlights";
 import { buildWeeklyAwards, type WeeklyAwardKind } from "@/lib/weeklyAwards";
 
-export type LadderSection = "week" | "results" | "stats" | "head-to-head";
+export type LadderSection = "home" | "upcoming" | "results" | "stats" | "head-to-head";
 type StatsMode = "leaders" | "ranking";
 
 const heroScoreFrames = [
@@ -225,6 +226,7 @@ function PlayerRow({
   player,
   profile,
   showResult,
+  pendingResult,
   showRecentResults,
   showSubstituteOnly,
   onSelect,
@@ -233,6 +235,7 @@ function PlayerRow({
   player: PlayerResult;
   profile?: PlayerProfile;
   showResult: boolean;
+  pendingResult: boolean;
   showRecentResults: boolean;
   showSubstituteOnly: boolean;
   onSelect: () => void;
@@ -273,7 +276,7 @@ function PlayerRow({
             ))}
           </span>
         ) : <ChevronRight size={18} />
-      ) : movement ? <span className={`movement-badge ${movement.toLowerCase()}`}>{movementIcon(movement)}</span> : <ChevronRight size={18} />}
+      ) : pendingResult ? <span className="pending-result-mark" aria-label="Result not reported">?</span> : movement ? <span className={`movement-badge ${movement.toLowerCase()}`}>{movementIcon(movement)}</span> : <ChevronRight size={18} />}
     </button>
   );
 }
@@ -329,11 +332,12 @@ function BoxCard({
   showWeekday: boolean;
   onSelect: (name: string) => void;
 }) {
+  const awaitingResult = showResult && !boxHasResult(box);
   const orderedPlayers = sortBoxPlayers(box.players, showResult ? "result" : "ranking", [...profiles.values()]
     .filter((profile) => profile.rank !== null)
     .map((profile) => ({ name: profile.name, rank: profile.rank!, box: profile.currentBox, movement: "" as Movement })));
   return (
-    <article className="box-card" id={`box-${box.number}`}>
+    <article className={`box-card${awaitingResult ? " awaiting-result" : ""}`} id={`box-${box.number}`}>
       <header className="box-head">
         <div>
           <span>BOX</span>
@@ -351,6 +355,7 @@ function BoxCard({
             player={player}
             profile={profiles.get(player.name)}
             showResult={showResult}
+            pendingResult={awaitingResult}
             showRecentResults={showRecentResults}
             showSubstituteOnly={showSubstituteOnly}
             onSelect={() => onSelect(player.name)}
@@ -358,6 +363,7 @@ function BoxCard({
           />
         ))}
       </div>
+      {awaitingResult ? <p className="awaiting-result-label">Result not reported yet</p> : null}
       {showResult ? <SetResults box={box} /> : null}
     </article>
   );
@@ -1049,32 +1055,153 @@ function CompareView({ profiles, weeks, onSelect }: { profiles: PlayerProfile[];
   );
 }
 
+const pulseIcons: Record<LeagueHighlightKind, React.ReactNode> = {
+  leader: <Crown size={17} />,
+  player: <Trophy size={17} />,
+  "personal-best": <TrendingUp size={17} />,
+  "bounce-back": <RotateCcw size={17} />,
+  streak: <Flame size={17} />,
+  perfect: <Medal size={17} />,
+  up: <ArrowUp size={17} />,
+};
+
+function LeaguePulse({ data }: { data: LadderData }) {
+  const highlights = useMemo(() => buildLeagueHighlights(data), [data]);
+  const [isVisible, setIsVisible] = useState(true);
+  const rootRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || !("IntersectionObserver" in window)) return;
+    const observer = new IntersectionObserver(([entry]) => setIsVisible(entry.isIntersecting), { threshold: 0.05 });
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, []);
+
+  const sequence = (hidden = false) => (
+    <ul className="pulse-sequence" aria-hidden={hidden || undefined}>
+      {highlights.map((highlight) => (
+        <li key={`${hidden ? "copy-" : ""}${highlight.id}`}>
+          <span className={`pulse-icon pulse-${highlight.kind}`}>{pulseIcons[highlight.kind]}</span>
+          <strong>{highlight.label}</strong>
+          <span>{highlight.text}</span>
+        </li>
+      ))}
+    </ul>
+  );
+
+  return (
+    <section
+      ref={rootRef}
+      className="league-pulse"
+      aria-label="League highlights"
+      data-visible={isVisible}
+      style={{ "--pulse-duration": `${Math.max(34, highlights.length * 7)}s` } as React.CSSProperties}
+    >
+      <strong className="pulse-heading"><span>LEAGUE</span><span>PULSE</span></strong>
+      <div className="pulse-window">
+        {highlights.length ? <div className="pulse-track">{sequence()}{sequence(true)}</div> : <p>Updates will appear as results come in.</p>}
+      </div>
+    </section>
+  );
+}
+
+function localWeekday(value: string): string {
+  return new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "America/Chicago" }).format(new Date(value));
+}
+
+function HomeDashboard({ data }: { data: LadderData }) {
+  const latest = data.latestResults;
+  const upcoming = data.upcoming;
+  const resultsLead = latest?.status === "partial"
+    || (latest?.status === "complete" && !["Mon", "Tue"].includes(localWeekday(data.updatedAt)));
+  const resultLabel = latest?.status === "partial" ? "RESULTS COMING IN" : "LATEST RESULTS";
+  const upcomingLabel = latest?.status === "partial" && upcoming?.dateKey === latest.dateKey ? "STILL TO PLAY" : "NEXT UP";
+  const resultDetail = latest?.status === "partial"
+    ? `${latest.reportedBoxCount} of ${latest.scheduledBoxCount} boxes reported`
+    : latest ? `${latest.scheduledBoxCount} boxes complete` : "Results will appear here";
+  const upcomingDetail = upcoming
+    ? `${upcoming.boxes.length} ${upcoming.boxes.length === 1 ? "box" : "boxes"} scheduled`
+    : "Schedule to be announced";
+
+  const statusCards = [
+    {
+      id: "results",
+      href: "/results",
+      label: resultLabel,
+      title: latest?.status === "partial" ? "See today's scores" : "See what happened",
+      detail: resultDetail,
+      date: latest?.date || "No reported week",
+      icon: <CircleCheckBig size={28} />,
+      primary: resultsLead,
+    },
+    {
+      id: "upcoming",
+      href: "/upcoming",
+      label: upcomingLabel,
+      title: latest?.status === "partial" && upcoming?.dateKey === latest.dateKey ? "Remaining matches" : "See who's playing",
+      detail: upcomingDetail,
+      date: upcoming?.date || "Date to be announced",
+      icon: <CalendarDays size={28} />,
+      primary: !resultsLead,
+    },
+  ].sort((left, right) => Number(right.primary) - Number(left.primary));
+
+  return (
+    <div className="home-dashboard">
+      <section className="home-section" aria-labelledby="right-now-title">
+        <div className="home-section-head"><h2 id="right-now-title">Happening now</h2></div>
+        <div className="home-status-grid">
+          {statusCards.map((card) => (
+            <Link key={card.id} href={card.href} className={`home-route-card${card.primary ? " primary" : ""}`}>
+              <span className="home-card-icon">{card.icon}</span>
+              <span className="home-card-label">{card.label}</span>
+              <h3>{card.title}</h3>
+              <p>{card.detail}</p>
+              <span className="home-card-footer"><span>{card.date}</span><ArrowRight size={20} /></span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="home-section" aria-labelledby="explore-title">
+        <div className="home-section-head"><h2 id="explore-title">Explore the league</h2></div>
+        <div className="home-explore-grid">
+          <Link href="/stats" className="home-explore-card"><ListOrdered size={25} /><span><strong>Stats & ranking</strong><small>Leaders, form, and the live table</small></span><ArrowRight size={20} /></Link>
+          <Link href="/head-to-head" className="home-explore-card"><UsersRound size={25} /><span><strong>Head to head</strong><small>Compare records and shared sets</small></span><ArrowRight size={20} /></Link>
+        </div>
+      </section>
+      <p className="ingested-at"><IngestedAt value={data.updatedAt} /></p>
+    </div>
+  );
+}
+
 export function LadderApp({ data, section }: { data: LadderData; section: LadderSection }) {
   const router = useRouter();
   const [statsMode, setStatsMode] = useState<StatsMode>("leaders");
-  const [resultsWeekKey, setResultsWeekKey] = useState(data.latestCompleted?.dateKey || "");
+  const [resultsWeekKey, setResultsWeekKey] = useState(data.latestResults?.dateKey || "");
   const [query, setQuery] = useState("");
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const profiles = useMemo(() => new Map(data.profiles.map((profile) => [profile.name, profile])), [data.profiles]);
-  const resultsWeeks = useMemo(() => data.weeks.filter((candidate) => candidate.completed), [data.weeks]);
+  const resultsWeeks = useMemo(() => data.weeks.filter((candidate) => candidate.status !== "scheduled"), [data.weeks]);
   const searchResults = query.trim().length > 1
     ? data.profiles.filter((profile) => profile.name.toLowerCase().includes(query.toLowerCase())).slice(0, 7)
     : [];
   const selected = selectedName ? profiles.get(selectedName) : undefined;
-  const resultsWeek = resultsWeeks.find((candidate) => candidate.dateKey === resultsWeekKey) || data.latestCompleted;
+  const resultsWeek = resultsWeeks.find((candidate) => candidate.dateKey === resultsWeekKey) || data.latestResults;
   const resultsWeekIndex = resultsWeeks.findIndex((candidate) => candidate.dateKey === resultsWeek?.dateKey);
   const previousResultsWeek = resultsWeeks[resultsWeekIndex - 1];
   const nextResultsWeek = resultsWeeks[resultsWeekIndex + 1];
-  const week = section === "week" ? data.upcoming : resultsWeek;
+  const week = section === "upcoming" ? data.upcoming : resultsWeek;
 
   function viewUpcomingBox(box: number) {
     if (!data.upcoming?.boxes.some((candidate) => candidate.number === box)) return;
     setSelectedName(null);
-    router.push(`/#box-${box}`);
+    router.push(`/upcoming#box-${box}`);
   }
 
   const destinations: { id: LadderSection; href: string; label: string; mobileLabel: string; icon: React.ReactNode }[] = [
-    { id: "week", href: "/", label: "Upcoming", mobileLabel: "Upcoming", icon: <CalendarDays size={18} /> },
+    { id: "upcoming", href: "/upcoming", label: "Upcoming", mobileLabel: "Upcoming", icon: <CalendarDays size={18} /> },
     { id: "results", href: "/results", label: "Results", mobileLabel: "Results", icon: <CircleCheckBig size={18} /> },
     { id: "stats", href: "/stats", label: "Stats", mobileLabel: "Stats", icon: <ListOrdered size={18} /> },
     { id: "head-to-head", href: "/head-to-head", label: "Head to Head", mobileLabel: "H2H", icon: <UsersRound size={18} /> },
@@ -1082,8 +1209,8 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
 
   return (
     <main className="ladder-app">
-      <header className="site-header">
-        <Link className="brand" href="/" aria-label="Open this week's ladder">
+      <header className={`site-header${section === "home" ? " pulse-home-header" : ""}`}>
+        <Link className="brand" href="/" aria-label="Open home">
           <Image className="header-logo" src="/my-league-live-logo.png" width={677} height={254} alt="My League Live" unoptimized />
         </Link>
       </header>
@@ -1097,7 +1224,9 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
         ))}
       </nav>
 
-      {section === "week" ? <><section className="hero">
+      {section === "home" ? <LeaguePulse data={data} /> : null}
+
+      {section === "home" ? <><section className="hero">
         <div className="hero-copy">
           <span className="eyebrow"><i /> PADEL+PICKLE ST. LOUIS</span>
           <h1>Find your box.<br /><em>Climb the ladder.</em></h1>
@@ -1116,14 +1245,16 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
       </> : null}
 
       <section className="content-shell">
-        {section === "week" ? <>
+        {section === "home" ? <HomeDashboard data={data} /> : null}
+
+        {section === "upcoming" ? <>
           <div className="section-head upcoming-section-head">
             <div className="upcoming-title">
-              <h2>Upcoming matches</h2>
+              <h2>{data.latestResults?.status === "partial" && week?.dateKey === data.latestResults.dateKey ? "Remaining this week" : "Upcoming matches"}</h2>
             </div>
             <p className="upcoming-date">{week?.date || "Date to be announced"}</p>
             <Link className="ladder-view-switch" href="/results">
-              <span className="link-label"><span className="link-label-desktop">View past results</span><span className="link-label-mobile">Past results</span></span>
+              <span className="link-label"><span className="link-label-desktop">View current results</span><span className="link-label-mobile">Results</span></span>
               <ArrowRight size={17} />
             </Link>
           </div>
@@ -1167,8 +1298,8 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
               </button>
             </div>
           ) : null}
-          {resultsWeek ? <WeeklyAwards week={resultsWeek} weeks={data.weeks} /> : null}
-          {resultsWeek ? <h3 className="results-label">Results</h3> : null}
+          {resultsWeek?.completed ? <WeeklyAwards week={resultsWeek} weeks={data.weeks} /> : null}
+          {resultsWeek ? <h3 className="results-label">{resultsWeek.status === "partial" ? `${resultsWeek.reportedBoxCount} of ${resultsWeek.scheduledBoxCount} boxes reported` : "Results"}</h3> : null}
           <LadderGrid
             week={resultsWeek}
             profiles={profiles}

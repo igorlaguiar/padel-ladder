@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildClubRanking, buildHeadToHeadRecord, buildLadderData, inferConfirmedSetResults, parseLadderCsv, parseScore, sortBoxPlayers } from "./ladder";
 import type { ConfirmedSetResult, LadderWeek } from "./types";
 import { buildWeeklyAwards, participantName } from "./weeklyAwards";
+import { buildLeagueHighlights } from "./leagueHighlights";
 
 const SAMPLE = `,8/13/2026,,,,8/20/2026,,,
 ,,Time,Day,,,Time,Day
@@ -213,5 +214,21 @@ describe("buildLadderData", () => {
 
     const boxOne = buildClubRanking([prior, tiedCurrent]).filter((entry) => entry.box === 1);
     expect(boxOne.map((entry) => entry.name)).toEqual(["Alex Ace", "Casey Court", "Blake Ball", "Evan Edge"]);
+  });
+
+  it("keeps a partial week in results and sends only unreported boxes to upcoming", () => {
+    const partial = SAMPLE
+      .replace(',"6,6,6",Alex Ace,UP,,,Alex Ace,', ',"6,6,6",Alex Ace,UP,,"6,6,6",Alex Ace,UP')
+      .replace(',"6,4,6",Blake Ball,STAY,,,Blake Ball,', ',"6,4,6",Blake Ball,STAY,,"6,4,6",Blake Ball,STAY')
+      .replace(',"4,6,3",Casey Court,STAY,,,Casey Court,', ',"4,6,3",Casey Court,STAY,,"4,6,3",Casey Court,STAY')
+      .replace(',"4,4,3",Drew Drop,DOWN,,,Drew Drop,', ',"4,4,3",Drew Drop,DOWN,,"4,4,3",Drew Drop,DOWN');
+    const data = buildLadderData(partial);
+
+    expect(data.latestResults).toMatchObject({ dateKey: "2026-08-20", status: "partial", reportedBoxCount: 1, scheduledBoxCount: 2 });
+    expect(data.latestCompleted?.dateKey).toBe("2026-08-13");
+    expect(data.upcoming).toMatchObject({ dateKey: "2026-08-20", status: "scheduled" });
+    expect(data.upcoming?.boxes.map((box) => box.number)).toEqual([2]);
+    expect(buildLeagueHighlights(data).some((item) => item.label === "PLAYER OF THE WEEK")).toBe(false);
+    expect(buildLeagueHighlights(data).some((item) => item.label === "BOX 1 WINNER" && item.text.includes("Alex Ace"))).toBe(true);
   });
 });

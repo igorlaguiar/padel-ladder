@@ -34,10 +34,15 @@ export interface LadderBox {
   setResults: ConfirmedSetResult[];
 }
 
+export type WeekResultStatus = "scheduled" | "partial" | "complete";
+
 export interface LadderWeek {
   date: string;
   dateKey: string;
   boxes: LadderBox[];
+  status: WeekResultStatus;
+  reportedBoxCount: number;
+  scheduledBoxCount: number;
   completed: boolean;
 }
 
@@ -79,6 +84,7 @@ export interface HeadToHeadRecord {
 export interface LadderData {
   weeks: LadderWeek[];
   latestCompleted: LadderWeek | null;
+  latestResults: LadderWeek | null;
   upcoming: LadderWeek | null;
   ranking: ClubRankingEntry[];
   profiles: PlayerProfile[];

@@ -89,6 +89,28 @@ export function inferConfirmedSetResults(players: PlayerResult[]): ConfirmedSetR
   });
 }
 
+export function boxHasResult(box: LadderBox): boolean {
+  return box.players.length === 4
+    && box.players.every((player) => player.total !== null && Boolean(player.movement));
+}
+
+function summarizeWeek(week: LadderWeek): LadderWeek {
+  const reportedBoxCount = week.boxes.filter(boxHasResult).length;
+  const scheduledBoxCount = week.boxes.length;
+  const status = reportedBoxCount === 0
+    ? "scheduled"
+    : reportedBoxCount === scheduledBoxCount
+      ? "complete"
+      : "partial";
+  return {
+    ...week,
+    status,
+    reportedBoxCount,
+    scheduledBoxCount,
+    completed: status === "complete",
+  };
+}
+
 export function sortBoxPlayers(
   players: PlayerResult[],
   order: "ranking" | "result",
@@ -166,18 +188,22 @@ export function parseLadderCsv(csv: string): LadderWeek[] {
 
       if (!box.players.length) continue;
       box.setResults = inferConfirmedSetResults(box.players);
-      const week = weekMap.get(key) || { date: displayDate(key), dateKey: key, boxes: [], completed: false };
+      const week = weekMap.get(key) || {
+        date: displayDate(key),
+        dateKey: key,
+        boxes: [],
+        status: "scheduled" as const,
+        reportedBoxCount: 0,
+        scheduledBoxCount: 0,
+        completed: false,
+      };
       week.boxes.push(box);
       weekMap.set(key, week);
     }
   }
 
   const individualDates = [...weekMap.values()]
-    .map((week) => ({
-      ...week,
-      boxes: week.boxes.sort((a, b) => a.number - b.number),
-      completed: week.boxes.some((box) => box.players.some((player) => player.total !== null && player.movement)),
-    }))
+    .map((week) => summarizeWeek({ ...week, boxes: week.boxes.sort((a, b) => a.number - b.number) }))
     .sort((a, b) => a.dateKey.localeCompare(b.dateKey));
 
   const leagueWeeks: LadderWeek[] = [];
@@ -193,12 +219,15 @@ export function parseLadderCsv(csv: string): LadderWeek[] {
       previous.dateKey = week.dateKey;
       previous.date = displayDateRange(startKey, week.dateKey);
       previous.boxes = [...previous.boxes, ...week.boxes].sort((a, b) => a.number - b.number);
-      previous.completed = previous.completed || week.completed;
     } else {
       leagueWeeks.push({ ...week, boxes: [...week.boxes] });
     }
   }
-  return leagueWeeks;
+  const summarizedWeeks = leagueWeeks.map(summarizeWeek);
+  const latestReportedIndex = summarizedWeeks.findLastIndex((week) => week.status !== "scheduled");
+  return summarizedWeeks.map((week, index) => index < latestReportedIndex && week.status === "partial"
+    ? { ...week, status: "complete" as const, completed: true }
+    : week);
 }
 
 function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
@@ -211,7 +240,7 @@ function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
         history.push(player);
         histories.set(player.name, history);
       }
-      if (week.completed) {
+      if (boxHasResult(box)) {
         for (const set of box.setResults) {
           const winningGames = Math.max(...set.teams.map((team) => team.games));
           for (const team of set.teams) {
@@ -317,8 +346,9 @@ export function buildHeadToHeadRecord(weeks: LadderWeek[], leftName: string, rig
     rightSetsWonAgainst: 0,
   };
 
-  for (const week of weeks.filter((candidate) => candidate.completed)) {
+  for (const week of weeks) {
     for (const box of week.boxes) {
+      if (!boxHasResult(box)) continue;
       const leftPlayer = box.players.find((player) => player.name === leftName);
       const rightPlayer = box.players.find((player) => player.name === rightName);
       if (!leftPlayer || !rightPlayer || leftPlayer.substitute || rightPlayer.substitute) continue;
@@ -345,6 +375,7 @@ export function buildLadderData(csv: string, source: "live" | "static" | "sample
   const weeks = parseLadderCsv(csv);
   const completedWeeks = weeks.filter((week) => week.completed);
   const latestCompleted = completedWeeks.at(-1) || null;
+  const latestResults = weeks.filter((week) => week.status !== "scheduled").at(-1) || null;
   const ranking = buildClubRanking(completedWeeks);
   const rankingByName = new Map(ranking.map((entry) => [entry.name, entry]));
   const rankingHistories = new Map<string, PlayerProfile["rankingHistory"]>();
@@ -356,12 +387,22 @@ export function buildLadderData(csv: string, source: "live" | "static" | "sample
       ]);
     }
   });
-  const upcoming = latestCompleted
-    ? weeks.find((week) => week.dateKey > latestCompleted.dateKey && week.boxes.some((box) => box.players.length)) || null
-    : weeks.at(-1) || null;
+  const remaining = latestResults?.status === "partial"
+    ? summarizeWeek({
+      ...latestResults,
+      boxes: latestResults.boxes.filter((box) => !boxHasResult(box)),
+      completed: false,
+    })
+    : null;
+  const nextScheduled = weeks.find((week) =>
+    week.status === "scheduled"
+      && (!latestResults || week.dateKey > latestResults.dateKey),
+  ) || null;
+  const upcoming = remaining?.boxes.length ? remaining : nextScheduled;
   return {
     weeks,
     latestCompleted,
+    latestResults,
     upcoming,
     ranking,
     profiles: buildProfiles(weeks).map((profile) => {
