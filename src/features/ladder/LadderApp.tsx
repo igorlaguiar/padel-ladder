@@ -16,6 +16,7 @@ import {
   Info,
   ListOrdered,
   Medal,
+  RefreshCw,
   RotateCcw,
   Search,
   Share2,
@@ -1224,6 +1225,9 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
           <Image className="header-logo header-logo-default" src="/my-league-live-logo.png" width={677} height={254} alt="My League Live" unoptimized />
           <Image className="header-logo header-logo-compact" src="/my-league-live-logo-horizontal.png" width={852} height={88} alt="" aria-hidden="true" unoptimized />
         </Link>
+        <button type="button" className="header-refresh" onClick={() => window.location.reload()} aria-label="Refresh league data">
+          <RefreshCw size={18} />
+        </button>
       </header>
       <nav className="primary-nav" aria-label="Ladder sections">
         {destinations.map((item) => (

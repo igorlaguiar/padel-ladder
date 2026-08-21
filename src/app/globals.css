@@ -41,6 +41,7 @@ button { color: inherit; }
 .brand { display: flex; align-items: center; padding: 0; border: 0; background: none; cursor: pointer; position: relative; }
 .header-logo { display: block; width: auto; height: 58px; transition: opacity .22s ease-out, transform .22s ease-out; }
 .header-logo-compact { display: none; }
+.header-refresh { display: none; }
 .brand-mark { display: inline-grid; place-items: center; width: 46px; height: 46px; background: var(--ink); color: var(--lime); font-weight: 800; letter-spacing: -.08em; font-size: 21px; }
 .primary-nav { position: fixed; top: 18px; right: max(28px, calc((100vw - 1380px) / 2)); z-index: 30; display: flex; align-items: center; gap: 6px; }
 .primary-nav a { min-height: 42px; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 13px; border-radius: 999px; color: var(--muted); font-size: 12px; font-weight: 700; text-decoration: none; }
@@ -395,6 +396,9 @@ footer { max-width: 1380px; margin: 0 auto; padding: 26px 28px 40px; border-top:
   .site-header.mobile-compact .brand { height: 23px; }
   .site-header.mobile-compact .header-logo-default { opacity: 0; transform: scale(.88); }
   .site-header.mobile-compact .header-logo-compact { opacity: 1; transform: translateY(-50%) scale(1); }
+  .header-refresh { width: 36px; height: 36px; display: grid; place-items: center; flex: 0 0 auto; padding: 0; border: 0; background: transparent; color: var(--muted); cursor: pointer; transition: width .24s ease-out, height .24s ease-out; }
+  .header-refresh:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+  .site-header.mobile-compact .header-refresh { width: 28px; height: 28px; }
   .brand-mark { width: 39px; height: 39px; font-size: 18px; }
   .ladder-app { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
   .primary-nav { top: auto; left: 0; right: 0; bottom: 0; min-height: calc(64px + env(safe-area-inset-bottom)); padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; border-top: 1px solid rgba(17,37,30,.16); background: rgba(244,241,232,.96); backdrop-filter: blur(16px); }
