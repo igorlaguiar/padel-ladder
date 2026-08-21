@@ -12,6 +12,7 @@ import {
   Clock3,
   Crown,
   Flame,
+  House,
   Info,
   ListOrdered,
   Medal,
@@ -1178,6 +1179,7 @@ function HomeDashboard({ data }: { data: LadderData }) {
 
 export function LadderApp({ data, section }: { data: LadderData; section: LadderSection }) {
   const router = useRouter();
+  const [compactMobileHeader, setCompactMobileHeader] = useState(false);
   const [statsMode, setStatsMode] = useState<StatsMode>("leaders");
   const [resultsWeekKey, setResultsWeekKey] = useState(data.latestResults?.dateKey || "");
   const [query, setQuery] = useState("");
@@ -1194,6 +1196,13 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
   const nextResultsWeek = resultsWeeks[resultsWeekIndex + 1];
   const week = section === "upcoming" ? data.upcoming : resultsWeek;
 
+  useEffect(() => {
+    const updateHeader = () => setCompactMobileHeader(window.scrollY > 12);
+    updateHeader();
+    window.addEventListener("scroll", updateHeader, { passive: true });
+    return () => window.removeEventListener("scroll", updateHeader);
+  }, []);
+
   function viewUpcomingBox(box: number) {
     if (!data.upcoming?.boxes.some((candidate) => candidate.number === box)) return;
     setSelectedName(null);
@@ -1201,6 +1210,7 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
   }
 
   const destinations: { id: LadderSection; href: string; label: string; mobileLabel: string; icon: React.ReactNode }[] = [
+    { id: "home", href: "/", label: "Home", mobileLabel: "Home", icon: <House size={18} /> },
     { id: "upcoming", href: "/upcoming", label: "Upcoming", mobileLabel: "Upcoming", icon: <CalendarDays size={18} /> },
     { id: "results", href: "/results", label: "Results", mobileLabel: "Results", icon: <CircleCheckBig size={18} /> },
     { id: "stats", href: "/stats", label: "Stats", mobileLabel: "Stats", icon: <ListOrdered size={18} /> },
@@ -1209,9 +1219,10 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
 
   return (
     <main className="ladder-app">
-      <header className={`site-header${section === "home" ? " pulse-home-header" : ""}`}>
+      <header className={`site-header${section === "home" ? " pulse-home-header" : ""}${compactMobileHeader ? " mobile-compact" : ""}`}>
         <Link className="brand" href="/" aria-label="Open home">
-          <Image className="header-logo" src="/my-league-live-logo.png" width={677} height={254} alt="My League Live" unoptimized />
+          <Image className="header-logo header-logo-default" src="/my-league-live-logo.png" width={677} height={254} alt="My League Live" unoptimized />
+          <Image className="header-logo header-logo-compact" src="/my-league-live-logo-horizontal.png" width={852} height={88} alt="" aria-hidden="true" unoptimized />
         </Link>
       </header>
       <nav className="primary-nav" aria-label="Ladder sections">
