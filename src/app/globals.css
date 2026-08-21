@@ -179,8 +179,11 @@ button { color: inherit; }
 .results-week-nav button:hover:not(:disabled) { color: var(--coral); }
 .results-week-nav button:disabled { color: var(--muted); cursor: not-allowed; opacity: .38; }
 .weekly-awards { margin: 0 0 30px; }
-.weekly-awards > header { display: flex; align-items: baseline; gap: 13px; margin-bottom: 12px; }
+.weekly-awards > header { display: flex; align-items: center; justify-content: space-between; gap: 13px; margin-bottom: 12px; }
 .weekly-awards h3 { margin: 0; font-size: 20px; }
+.weekly-share-button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 12px; border: 1px solid var(--ink); background: var(--lime); color: var(--ink); font-size: 11px; font-weight: 800; cursor: pointer; box-shadow: 3px 3px 0 var(--ink); }
+.weekly-share-button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+.weekly-share-button:focus-visible { outline: 3px solid var(--coral); outline-offset: 3px; }
 .results-label { margin: 0 0 12px; font-size: 20px; }
 .weekly-award-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
 .weekly-award { min-width: 0; position: relative; display: flex; align-items: flex-start; gap: 12px; background: var(--white); border: 1px solid var(--ink); box-shadow: 5px 5px 0 var(--ink); padding: 17px; }
@@ -221,6 +224,9 @@ button { color: inherit; }
 .avatar.small { width: 32px; height: 32px; font-size: 9px; }
 .player-copy { flex: 1; min-width: 0; display: grid; gap: 3px; }
 .player-copy strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+.player-copy strong.substitute-name { display: flex; align-items: center; gap: 5px; }
+.player-copy strong.substitute-name > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.substitute-icon { flex: 0 0 auto; color: var(--muted); }
 .player-copy small, .score-stack small { color: var(--muted); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .score-stack { text-align: right; display: grid; min-width: 42px; }
 .score-stack strong { font-size: 16px; }
@@ -230,10 +236,9 @@ button { color: inherit; }
 .movement-badge.stay { background: var(--mint); }
 .pending-result-mark { width: 18px; flex: 0 0 auto; color: var(--muted); font: 700 17px/1 "DM Mono", monospace; text-align: center; }
 .recent-movements { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
-.set-results { border-top: 1px solid var(--line); padding: 14px 15px 12px; }
-.set-results header { margin-bottom: 7px; }
-.set-results header span { color: var(--muted); font: 500 9px "DM Mono", monospace; letter-spacing: .12em; }
+.set-results { border-top: 1px solid var(--line); padding: 7px 15px 12px; }
 .set-result { min-height: 34px; display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; border-top: 1px solid var(--line); }
+.set-result:first-child { border-top: 0; }
 .set-result > span { color: var(--muted); font: 500 9px "DM Mono", monospace; }
 .set-result > div { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 7px; font-size: 11px; }
 .set-result > div span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -450,7 +455,8 @@ footer { max-width: 1380px; margin: 0 auto; padding: 26px 28px 40px; border-top:
   .results-week-nav > div { gap: 4px; }
   .results-week-nav span { font-size: 10px; }
   .results-week-nav strong { font-size: 17px; }
-  .weekly-awards > header { display: grid; gap: 5px; }
+  .weekly-awards > header { display: flex; gap: 10px; }
+  .weekly-share-button { min-height: 36px; padding: 7px 10px; font-size: 10px; }
   .weekly-award-grid { grid-auto-columns: minmax(230px, 82vw); grid-auto-flow: column; grid-template-columns: none; gap: 8px; overflow-x: auto; padding: 0 16px 10px 0; scroll-snap-type: x mandatory; scrollbar-width: thin; }
   .weekly-award { scroll-snap-align: start; flex-direction: column; gap: 8px; padding: 12px; }
   .weekly-award-icon { width: 30px; height: 30px; }

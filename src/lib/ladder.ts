@@ -58,11 +58,13 @@ function displayDateRange(startKey: string, endKey: string): string {
 }
 
 export function parseScore(raw: string): number[] {
-  const primary = raw.trim().split(/\s|\(/)[0];
+  const primary = raw.split("(")[0].trim();
   if (!primary) return [];
-  if (/^\d{3}$/.test(primary)) return primary.split("").map(Number);
-  return primary
-    .split(",")
+  const separated = primary
+    .split(/[,;\s]+/)
+    .filter(Boolean);
+  if (separated.length === 1 && /^\d{3}$/.test(separated[0])) return separated[0].split("").map(Number);
+  return separated
     .map((part) => Number.parseInt(part.trim(), 10))
     .filter(Number.isFinite)
     .slice(0, 3);
@@ -92,6 +94,10 @@ export function inferConfirmedSetResults(players: PlayerResult[]): ConfirmedSetR
 export function boxHasResult(box: LadderBox): boolean {
   return box.players.length === 4
     && box.players.every((player) => player.total !== null && Boolean(player.movement));
+}
+
+export function isRosterStatAppearance(player: PlayerResult): boolean {
+  return player.total !== null && !player.substitute.trim();
 }
 
 function summarizeWeek(week: LadderWeek): LadderWeek {
@@ -246,7 +252,7 @@ function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
           for (const team of set.teams) {
             for (const name of team.players) {
               const player = box.players.find((candidate) => candidate.name === name);
-              if (!player || player.substitute) continue;
+              if (!player || !isRosterStatAppearance(player)) continue;
               const record = setRecords.get(name) || { played: 0, won: 0 };
               record.played += 1;
               if (team.games === winningGames) record.won += 1;
@@ -260,7 +266,7 @@ function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
 
   return [...histories.entries()]
     .map(([name, history]) => {
-      const played = history.filter((item) => item.total !== null && !item.substitute);
+      const played = history.filter(isRosterStatAppearance);
       const positioned = played.length ? played : history;
       const setRecord = setRecords.get(name) || { played: 0, won: 0 };
       const totalGames = played.reduce((sum, item) => sum + (item.total || 0), 0);
@@ -295,7 +301,7 @@ function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
 
 function playerWeekScore(week: LadderWeek, name: string): number {
   const result = week.boxes.flatMap((box) => box.players).find((player) => player.name === name);
-  return !result || result.substitute || result.total === null ? 0 : result.total;
+  return !result || !isRosterStatAppearance(result) ? 0 : result.total!;
 }
 
 export function buildClubRanking(completedWeeks: LadderWeek[]): ClubRankingEntry[] {
@@ -351,7 +357,7 @@ export function buildHeadToHeadRecord(weeks: LadderWeek[], leftName: string, rig
       if (!boxHasResult(box)) continue;
       const leftPlayer = box.players.find((player) => player.name === leftName);
       const rightPlayer = box.players.find((player) => player.name === rightName);
-      if (!leftPlayer || !rightPlayer || leftPlayer.substitute || rightPlayer.substitute) continue;
+      if (!leftPlayer || !rightPlayer || !isRosterStatAppearance(leftPlayer) || !isRosterStatAppearance(rightPlayer)) continue;
       record.sharedSessions += 1;
 
       for (const set of box.setResults) {

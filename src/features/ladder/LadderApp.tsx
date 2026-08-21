@@ -3,6 +3,7 @@
 import {
   ArrowDown,
   ArrowRight,
+  ArrowRightLeft,
   ArrowUp,
   CalendarDays,
   CircleCheckBig,
@@ -31,7 +32,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ConfirmedSetResult, LadderBox, LadderData, LadderWeek, Movement, PlayerProfile, PlayerResult } from "@/lib/types";
-import { boxHasResult, buildHeadToHeadRecord, sortBoxPlayers } from "@/lib/ladder";
+import { boxHasResult, buildHeadToHeadRecord, isRosterStatAppearance, sortBoxPlayers } from "@/lib/ladder";
 import { buildLeagueHighlights, type LeagueHighlightKind } from "@/lib/leagueHighlights";
 import { buildWeeklyAwards, type WeeklyAwardKind } from "@/lib/weeklyAwards";
 
@@ -259,8 +260,11 @@ function PlayerRow({
         ) : null}
       </span>
       <span className="player-copy">
-        <strong>{player.name}</strong>
-        {player.substitute ? <small>Sub: {player.substitute}</small> : showSubstituteOnly ? null : <small>{movement ? `Last: ${movement.toLowerCase()}` : "Ready to play"}</small>}
+        <strong className={showResult && player.substitute ? "substitute-name" : undefined}>
+          <span>{showResult && player.substitute ? player.substitute : player.name}</span>
+          {showResult && player.substitute ? <ArrowRightLeft className="substitute-icon" size={14} aria-hidden="true" /> : null}
+        </strong>
+        {player.substitute ? <small>{showResult ? `For: ${player.name}` : `Sub: ${player.substitute}`}</small> : showSubstituteOnly ? null : <small>{movement ? `Last: ${movement.toLowerCase()}` : "Ready to play"}</small>}
       </span>
       {showResult && player.total !== null ? (
         <span className="score-stack">
@@ -291,7 +295,6 @@ function SetResults({ box }: { box: LadderBox }) {
   };
   return (
     <section className="set-results" aria-label="Confirmed set results">
-      <header><span>SET-BY-SET</span></header>
       {box.setResults.map((set) => {
         const [first, second] = set.teams;
         const firstPlayers = first.players.map(displayName);
@@ -381,10 +384,197 @@ const awardIcons: Record<WeeklyAwardKind, React.ReactNode> = {
 function WeeklyAwards({ week, weeks }: { week: LadderWeek; weeks: LadderWeek[] }) {
   const awards = buildWeeklyAwards(week, weeks);
   if (!awards.length) return null;
+
+  async function shareWeeklyAwards() {
+    const logo = await loadShareLogo();
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1350;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const drawFitText = (text: string, x: number, y: number, maxWidth: number, maxSize: number, weight = 700) => {
+      let size = maxSize;
+      do {
+        ctx.font = `${weight} ${size}px Arial`;
+        size -= 2;
+      } while (size > 22 && ctx.measureText(text).width > maxWidth);
+      ctx.fillText(text, x, y);
+    };
+
+    const wrapText = (text: string, maxWidth: number) => {
+      const lines: string[] = [];
+      let line = "";
+      text.split(/\s+/).forEach((word) => {
+        const candidate = line ? `${line} ${word}` : word;
+        if (line && ctx.measureText(candidate).width > maxWidth) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = candidate;
+        }
+      });
+      if (line) lines.push(line);
+      return lines;
+    };
+
+    const drawWrappedFitText = (
+      text: string,
+      x: number,
+      y: number,
+      maxWidth: number,
+      maxSize: number,
+      minSize: number,
+      maxLines: number,
+      weight = 700,
+      lineHeightRatio = 1.12,
+    ) => {
+      let size = maxSize;
+      let lines: string[] = [];
+      do {
+        ctx.font = `${weight} ${size}px Arial`;
+        lines = wrapText(text, maxWidth);
+        if (lines.length <= maxLines) break;
+        size -= 2;
+      } while (size >= minSize);
+      const lineHeight = size * lineHeightRatio;
+      lines.forEach((line, index) => ctx.fillText(line, x, y + index * lineHeight));
+      return y + (lines.length - 1) * lineHeight;
+    };
+
+    const drawAwardCard = (
+      award: (typeof awards)[number],
+      x: number,
+      y: number,
+      width: number,
+      height: number,
+      background: string,
+      featured = false,
+    ) => {
+      const dark = "#11251e";
+      const muted = "#586a61";
+      const padding = featured ? 40 : 32;
+      ctx.fillStyle = background;
+      ctx.fillRect(x, y, width, height);
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = dark;
+      ctx.font = `800 ${featured ? 22 : 18}px Arial`;
+      ctx.fillText(award.title.toUpperCase(), x + padding, y + (featured ? 48 : 42));
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = dark;
+      let namesBottom: number;
+      if (award.kind === "personal-best") {
+        const lineHeight = 38;
+        const nameSize = 25;
+        const startY = y + 91;
+        award.recipients.forEach((recipient, recipientIndex) => {
+          const lineY = startY + recipientIndex * lineHeight;
+          ctx.fillStyle = dark;
+          ctx.font = `800 ${nameSize}px Arial`;
+          ctx.fillText(recipient.name, x + padding, lineY);
+          const nameWidth = ctx.measureText(recipient.name).width;
+          if (recipient.note) {
+            ctx.fillStyle = muted;
+            ctx.font = "700 16px Arial";
+            ctx.fillText(recipient.note, x + padding + nameWidth + 10, lineY);
+          }
+        });
+        namesBottom = startY + (award.recipients.length - 1) * lineHeight;
+      } else {
+        const recipients = award.recipients.map((recipient) => recipient.name).join(" · ");
+        namesBottom = drawWrappedFitText(
+          recipients,
+          x + padding,
+          y + (featured ? 118 : 91),
+          width - padding * 2,
+          featured ? 60 : width > 600 ? 42 : 31,
+          featured ? 38 : width > 600 ? 30 : 23,
+          featured ? 2 : 3,
+          800,
+        );
+      }
+
+      const notes = award.kind === "personal-best"
+        ? []
+        : award.recipients.flatMap((recipient) => recipient.note ? [`${recipient.name} · ${recipient.note}`] : []);
+      const honorable = award.honorableMentions?.length
+        ? `Honorable · ${award.honorableMentions.map((recipient) => recipient.name).join(" · ")}`
+        : "";
+      const secondary = [...notes, honorable].filter(Boolean).join("   ");
+      if (secondary) {
+        ctx.fillStyle = muted;
+        drawWrappedFitText(
+          secondary,
+          x + padding,
+          namesBottom + (featured ? 30 : 27),
+          width - padding * 2,
+          width > 600 ? 21 : 18,
+          15,
+          width > 600 ? 2 : 4,
+          600,
+          1.25,
+        );
+      }
+
+      ctx.fillStyle = muted;
+      ctx.font = `500 ${featured ? 19 : 17}px Arial`;
+      ctx.fillText(award.detail, x + padding, y + height - 25);
+    };
+
+    ctx.fillStyle = "#11251e";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawShareLogo(ctx, logo);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#a6b1a9";
+    ctx.font = "500 24px Arial";
+    ctx.fillText("PADEL+PiCKLE STL", 1008, 116);
+
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#d9ff57";
+    ctx.font = "800 25px Arial";
+    ctx.fillText("WEEKLY AWARDS", 72, 245);
+    ctx.fillStyle = "#f4f1e8";
+    drawFitText(week.date, 72, 325, 936, 62, 700);
+
+    drawAwardCard(awards[0], 72, 375, 936, awards.length === 1 ? 430 : 210, "#d9ff57", true);
+    if (awards.length === 2) {
+      drawAwardCard(awards[1], 72, 609, 936, 410, "#b9ebdc");
+    } else if (awards.length === 3) {
+      drawAwardCard(awards[1], 72, 609, 456, 430, "#b9ebdc");
+      drawAwardCard(awards[2], 552, 609, 456, 430, "#f4f1e8");
+    } else if (awards.length >= 4) {
+      drawAwardCard(awards[1], 72, 609, 936, 220, "#b9ebdc");
+      drawAwardCard(awards[2], 72, 853, 456, 330, "#f4f1e8");
+      drawAwardCard(awards[3], 552, 853, 456, 330, "#f4f1e8");
+    }
+
+    ctx.strokeStyle = "#3a4e46";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(72, 1240);
+    ctx.lineTo(1008, 1240);
+    ctx.stroke();
+    ctx.fillStyle = "#d9ff57";
+    ctx.font = "700 28px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText("FIND YOUR BOX. CLIMB THE LADDER.", 72, 1295);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#a6b1a9";
+    ctx.font = "500 22px Arial";
+    ctx.fillText("WEEKLY AWARDS", 1008, 1295);
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!blob) return;
+    await sharePng(blob, `${week.dateKey}-weekly-awards.png`);
+  }
+
   return (
     <section className="weekly-awards" aria-labelledby="weekly-awards-title">
       <header>
         <h3 id="weekly-awards-title">Awards</h3>
+        <button type="button" className="weekly-share-button" onClick={shareWeeklyAwards}><Share2 size={16} /> Share awards card</button>
       </header>
       <div className="weekly-award-grid">
         {awards.map((award) => (
@@ -521,7 +711,7 @@ function ProfilePanel({
       }
     }
   }
-  const latestResult = profile.history.find((item) => item.total !== null && !item.substitute);
+  const latestResult = profile.history.find(isRosterStatAppearance);
   const latestResultBox = latestResult ? historyBoxes.get(`${latestResult.dateKey}-${latestResult.box}`) : undefined;
   const latestSetRecord = latestResultBox?.setResults.reduce((record, set) => {
     const team = set.teams.find((candidate) => candidate.players.includes(profile.name));
@@ -882,7 +1072,7 @@ function CompareView({ profiles, weeks, onSelect }: { profiles: PlayerProfile[];
       .flatMap((week) => week.boxes.flatMap((box) => {
         const leftPlayer = box.players.find((player) => player.name === left.name);
         const rightPlayer = box.players.find((player) => player.name === right.name);
-        return leftPlayer && rightPlayer && !leftPlayer.substitute && !rightPlayer.substitute
+        return leftPlayer && rightPlayer && isRosterStatAppearance(leftPlayer) && isRosterStatAppearance(rightPlayer)
           ? [{ box, date: week.date, dateKey: week.dateKey }]
           : [];
       }))

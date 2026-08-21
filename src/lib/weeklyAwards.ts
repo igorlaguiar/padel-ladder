@@ -1,4 +1,5 @@
 import type { ConfirmedSetResult, LadderBox, LadderWeek, PlayerResult } from "./types";
+import { isRosterStatAppearance } from "./ladder";
 
 export type WeeklyAwardKind = "top" | "player" | "personal-best" | "bounce-back";
 
@@ -32,7 +33,7 @@ function movedUpInPreviousWeek(weeks: LadderWeek[], targetIndex: number, name: s
   for (let index = targetIndex - 1; index >= 0; index -= 1) {
     if (!weeks[index].completed) continue;
     const previous = weeks[index].boxes.flatMap((box) => box.players)
-      .find((player) => player.name === name && !player.substitute);
+      .find((player) => player.name === name && isRosterStatAppearance(player));
     return previous?.movement === "UP";
   }
   return false;
@@ -44,7 +45,7 @@ export function buildWeeklyAwards(week: LadderWeek, weeks: LadderWeek[]): Weekly
 
   const awards: WeeklyAward[] = [];
   const boxOne = week.boxes.find((box) => box.number === 1);
-  const tableWinners = boxOne?.players.filter((player) => !player.substitute && player.movement === "UP") || [];
+  const tableWinners = boxOne?.players.filter((player) => isRosterStatAppearance(player) && player.movement === "UP") || [];
   if (tableWinners.length) {
     awards.push({
       kind: "top",
@@ -55,7 +56,7 @@ export function buildWeeklyAwards(week: LadderWeek, weeks: LadderWeek[]): Weekly
   }
 
   const perfectPlayers = week.boxes.flatMap((box) => box.players.flatMap((player) => {
-    if (player.substitute) return [];
+    if (!isRosterStatAppearance(player)) return [];
     const outcomes = setOutcomes(box, player.name);
     if (outcomes.length !== 3 || outcomes.some((won) => !won)) return [];
     return [{ name: player.name, cameFromUp: movedUpInPreviousWeek(weeks, targetIndex, player.name) }];
@@ -77,11 +78,11 @@ export function buildWeeklyAwards(week: LadderWeek, weeks: LadderWeek[]): Weekly
   }
 
   const personalBests = week.boxes.flatMap((box) => box.players.flatMap((player) => {
-    if (player.substitute || player.movement !== "UP") return [];
+    if (!isRosterStatAppearance(player) || player.movement !== "UP") return [];
     const previousBoxes = weeks.slice(0, targetIndex).flatMap((candidate) =>
       candidate.completed
         ? candidate.boxes.flatMap((previousBox) => previousBox.players
-          .filter((previous) => previous.name === player.name && !previous.substitute)
+          .filter((previous) => previous.name === player.name && isRosterStatAppearance(previous))
           .map(() => previousBox.number))
         : [],
     );
@@ -99,12 +100,12 @@ export function buildWeeklyAwards(week: LadderWeek, weeks: LadderWeek[]): Weekly
   }
 
   const bounceBacks = week.boxes.flatMap((box) => box.players.flatMap((player) => {
-    if (player.substitute || player.movement !== "UP") return [];
+    if (!isRosterStatAppearance(player) || player.movement !== "UP") return [];
     let previous: PlayerResult | undefined;
     for (let index = targetIndex - 1; index >= 0 && !previous; index -= 1) {
       if (!weeks[index].completed) continue;
       previous = weeks[index].boxes.flatMap((candidate) => candidate.players)
-        .find((candidate) => candidate.name === player.name && !candidate.substitute);
+        .find((candidate) => candidate.name === player.name && isRosterStatAppearance(candidate));
     }
     return previous?.movement === "DOWN" ? [{ name: player.name }] : [];
   }));

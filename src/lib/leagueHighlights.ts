@@ -1,4 +1,4 @@
-import { boxHasResult } from "./ladder";
+import { boxHasResult, isRosterStatAppearance } from "./ladder";
 import type { LadderData } from "./types";
 import { buildWeeklyAwards } from "./weeklyAwards";
 
@@ -15,7 +15,7 @@ function perfectPlayers(data: LadderData): string[] {
   const week = data.latestResults;
   if (!week) return [];
   return week.boxes.filter(boxHasResult).flatMap((box) => box.players.flatMap((player) => {
-    if (player.substitute) return [];
+    if (!isRosterStatAppearance(player)) return [];
     const wonEverySet = box.setResults.length === 3 && box.setResults.every((set) => {
       const team = set.teams.find((candidate) => candidate.players.includes(player.name));
       const opponent = set.teams.find((candidate) => candidate !== team);
@@ -72,7 +72,7 @@ export function buildLeagueHighlights(data: LadderData): LeagueHighlight[] {
   const latest = data.latestResults;
   if (latest) {
     for (const box of latest.boxes.filter(boxHasResult)) {
-      for (const player of box.players.filter((candidate) => !candidate.substitute && candidate.movement === "UP")) {
+      for (const player of box.players.filter((candidate) => isRosterStatAppearance(candidate) && candidate.movement === "UP")) {
         add({
           id: `up-${latest.dateKey}-${player.name}`,
           kind: "up",

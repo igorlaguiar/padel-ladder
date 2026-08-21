@@ -18,8 +18,12 @@ Box 2 Crt 2,Scores,7:30 PM,Thur,Box 2 Crt 2,Scores,6:00 PM,Thur
 ,"3,3,3",Hope High,DOWN,,,Hope High,`;
 
 describe("parseScore", () => {
-  it("handles comma scores, playoff notes, and compact scores", () => {
+  it("handles common delimiters, playoff notes, and compact scores", () => {
     expect(parseScore("6,6,7 (5-3)")).toEqual([6, 6, 7]);
+    expect(parseScore("6, 4, 7")).toEqual([6, 4, 7]);
+    expect(parseScore("6;4;7")).toEqual([6, 4, 7]);
+    expect(parseScore("6; 4; 7")).toEqual([6, 4, 7]);
+    expect(parseScore("6 4 7")).toEqual([6, 4, 7]);
     expect(parseScore("665")).toEqual([6, 6, 5]);
   });
 });
@@ -50,6 +54,24 @@ Box 1 Crt 1,Scores,6:00 PM,Thur
     expect(weeks).toHaveLength(1);
     expect(weeks[0].date).toBe("Aug 19–Aug 20, 2026");
     expect(weeks[0].boxes.map((box) => box.number)).toEqual([1, 13]);
+  });
+
+  it("reconstructs all sets when sheet scores contain spaces after commas", () => {
+    const spacedScores = `,8/6/2026,,,
+Box 8 Crt 6,Scores,7:30 PM,Thu
+,"6, 4, 7",Gerald Andriole,UP
+Drew Wommack,"6, 6, 5",Bill Snyders,STAY
+,"3, 6, 7",Igor Aguiar,STAY
+,"3, 4, 5",Gregg Goldman,DOWN`;
+    const box = parseLadderCsv(spacedScores)[0].boxes[0];
+
+    expect(box.players.map((player) => player.total)).toEqual([17, 17, 16, 12]);
+    expect(box.setResults).toHaveLength(3);
+    expect(box.setResults.map((set) => set.teams.map((team) => team.games))).toEqual([
+      [6, 3],
+      [4, 6],
+      [7, 5],
+    ]);
   });
 });
 
@@ -94,6 +116,7 @@ describe("weekly awards and substitutes", () => {
   it("uses the substitute name in results and excludes the roster player from set totals", () => {
     const withSubstitute = SAMPLE.replace(',"6,6,6",Alex Ace', 'Alex Substitute,"6,6,6",Alex Ace');
     const data = buildLadderData(withSubstitute);
+    const baseline = buildLadderData(SAMPLE);
     const player = data.latestCompleted?.boxes[0].players[0];
     expect(player && participantName(player)).toBe("Alex Substitute");
     expect(data.profiles.find((profile) => profile.name === "Alex Ace")).toMatchObject({
@@ -104,6 +127,22 @@ describe("weekly awards and substitutes", () => {
       setsWon: 0,
       streak: 0,
     });
+    for (const name of ["Blake Ball", "Casey Court", "Drew Drop"]) {
+      const selectStats = (source: ReturnType<typeof buildLadderData>) => {
+        const profile = source.profiles.find((candidate) => candidate.name === name);
+        return profile && {
+          weeksPlayed: profile.weeksPlayed,
+          setsPlayed: profile.setsPlayed,
+          setsWon: profile.setsWon,
+          totalGames: profile.totalGames,
+          promotions: profile.promotions,
+          demotions: profile.demotions,
+          stays: profile.stays,
+        };
+      };
+      expect(selectStats(data)).toEqual(selectStats(baseline));
+    }
+    expect(data.profiles.find((profile) => profile.name === "Alex Substitute")).toBeUndefined();
     const awards = buildWeeklyAwards(data.latestCompleted!, data.weeks);
     expect(awards.find((award) => award.kind === "top")).toBeUndefined();
     expect(awards.find((award) => award.kind === "player")).toBeUndefined();
@@ -167,6 +206,17 @@ describe("head-to-head records", () => {
       rightSetsWonAgainst: 0,
     });
   });
+
+  it("keeps head-to-head results for two roster players when another player uses a substitute", () => {
+    const week = parseLadderCsv(SAMPLE.replace(',"6,6,6",Alex Ace', 'Alex Substitute,"6,6,6",Alex Ace'))[0];
+    expect(buildHeadToHeadRecord([week], "Blake Ball", "Casey Court")).toEqual({
+      sharedSessions: 1,
+      setsTogether: 0,
+      setsAgainst: 3,
+      leftSetsWonAgainst: 2,
+      rightSetsWonAgainst: 1,
+    });
+  });
 });
 
 describe("buildLadderData", () => {
@@ -214,6 +264,22 @@ describe("buildLadderData", () => {
 
     const boxOne = buildClubRanking([prior, tiedCurrent]).filter((entry) => entry.box === 1);
     expect(boxOne.map((entry) => entry.name)).toEqual(["Alex Ace", "Casey Court", "Blake Ball", "Evan Edge"]);
+  });
+
+  it("does not credit a roster player when that person appears as someone else's substitute", () => {
+    const withRosterPlayerAsSub = SAMPLE.replace(',"6,6,6",Alex Ace', 'Evan Edge,"6,6,6",Alex Ace');
+    const data = buildLadderData(withRosterPlayerAsSub);
+    const baseline = buildLadderData(SAMPLE);
+    const actual = data.profiles.find((profile) => profile.name === "Evan Edge");
+    const expected = baseline.profiles.find((profile) => profile.name === "Evan Edge");
+
+    expect(actual).toMatchObject({
+      weeksPlayed: expected?.weeksPlayed,
+      setsPlayed: expected?.setsPlayed,
+      setsWon: expected?.setsWon,
+      totalGames: expected?.totalGames,
+      promotions: expected?.promotions,
+    });
   });
 
   it("keeps a partial week in results and sends only unreported boxes to upcoming", () => {
