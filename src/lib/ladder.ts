@@ -243,7 +243,6 @@ export function parseLadderCsv(csv: string): LadderWeek[] {
 function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
   const histories = new Map<string, PlayerResult[]>();
   const setWins = new Map<string, number>();
-  const completedWeeks = weeks.filter((week) => week.completed);
   for (const week of weeks) {
     for (const box of week.boxes) {
       for (const player of box.players) {
@@ -274,9 +273,15 @@ function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
       const totalGames = scored.reduce((sum, item) => sum + (item.total || 0), 0);
       const ordered = [...history].sort((a, b) => a.dateKey.localeCompare(b.dateKey));
       let streak = 0;
-      for (let i = completedWeeks.length - 1; i >= 0; i -= 1) {
-        const result = completedWeeks[i].boxes.flatMap((box) => box.players).find((player) => player.name === name);
-        if (!result || !isRosterStatAppearance(result) || result.movement !== "UP") break;
+      for (let i = weeks.length - 1; i >= 0; i -= 1) {
+        const week = weeks[i];
+        if (week.status === "scheduled") continue;
+        const result = week.boxes.flatMap((box) => box.players).find((player) => player.name === name);
+        if (!result || !result.movement) {
+          if (week.completed) break;
+          continue;
+        }
+        if (!isRosterStatAppearance(result) || result.movement !== "UP") break;
         streak += 1;
       }
       return {

@@ -243,6 +243,15 @@ describe("buildLadderData", () => {
     expect(data.profiles.find((player) => player.name === "Alex Ace")?.streak).toBe(1);
   });
 
+  it("counts a reported UP result while the rest of the league week is partial", () => {
+    const base = parseLadderCsv(SAMPLE)[0];
+    const prior = { ...base, dateKey: "2026-08-13", date: "Aug 13, 2026" };
+    const partial = { ...base, dateKey: "2026-08-20", date: "Aug 20, 2026", status: "partial" as const, completed: false };
+    const data = buildLadderDataFromWeeks([prior, partial]);
+
+    expect(data.profiles.find((player) => player.name === "Alex Ace")?.streak).toBe(2);
+  });
+
   it("finds upcoming play and creates the club ranking", () => {
     const data = buildLadderData(SAMPLE);
     expect(data.latestCompleted?.dateKey).toBe("2026-08-13");
