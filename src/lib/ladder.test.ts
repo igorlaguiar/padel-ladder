@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildClubRanking, buildHeadToHeadRecord, buildLadderData, inferConfirmedSetResults, parseLadderCsv, parseScore, sortBoxPlayers } from "./ladder";
+import { buildClubRanking, buildHeadToHeadRecord, buildLadderData, buildLadderDataFromWeeks, inferConfirmedSetResults, parseLadderCsv, parseScore, sortBoxPlayers } from "./ladder";
 import type { ConfirmedSetResult, LadderWeek } from "./types";
 import { buildWeeklyAwards, participantName } from "./weeklyAwards";
 import { buildLeagueHighlights } from "./leagueHighlights";
@@ -223,6 +223,26 @@ describe("head-to-head records", () => {
 });
 
 describe("buildLadderData", () => {
+  it("breaks an UP streak when the player misses a completed league week", () => {
+    const base = parseLadderCsv(SAMPLE)[0];
+    const makeWeek = (dateKey: string, includeAlex: boolean): LadderWeek => ({
+      ...base,
+      dateKey,
+      date: dateKey,
+      boxes: base.boxes.map((box) => ({
+        ...box,
+        players: box.players.map((player) => player.name === "Alex Ace" && !includeAlex ? { ...player, name: "Jordan Join" } : player),
+      })),
+    });
+    const data = buildLadderDataFromWeeks([
+      makeWeek("2026-07-30", true),
+      makeWeek("2026-08-06", false),
+      makeWeek("2026-08-13", true),
+    ]);
+
+    expect(data.profiles.find((player) => player.name === "Alex Ace")?.streak).toBe(1);
+  });
+
   it("finds upcoming play and creates the club ranking", () => {
     const data = buildLadderData(SAMPLE);
     expect(data.latestCompleted?.dateKey).toBe("2026-08-13");
