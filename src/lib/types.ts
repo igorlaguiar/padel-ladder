@@ -91,3 +91,33 @@ export interface LadderData {
   updatedAt: string;
   source: "live" | "static" | "sample";
 }
+
+export type SeasonId = "summer-2026" | "spring-2026" | "winter-2026";
+
+export interface SeasonDefinition {
+  id: SeasonId;
+  label: string;
+  shortLabel: string;
+  status: "current" | "archived";
+  dateRange: string;
+}
+
+export interface SeasonData {
+  season: SeasonDefinition;
+  data: LadderData;
+}
+
+export interface CareerProfile {
+  name: string;
+  seasons: Array<{ season: SeasonDefinition; profile: PlayerProfile }>;
+  seasonsPlayed: number;
+  weeksPlayed: number;
+  promotions: number;
+  demotions: number;
+  stays: number;
+  setsPlayed: number;
+  setsWon: number;
+  totalGames: number;
+  highestBox: number;
+  bestRank: number | null;
+}

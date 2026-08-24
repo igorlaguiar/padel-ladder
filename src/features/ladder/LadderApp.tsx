@@ -14,6 +14,7 @@ import {
   Crown,
   Flame,
   House,
+  History,
   Info,
   ListOrdered,
   Medal,
@@ -31,12 +32,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ConfirmedSetResult, LadderBox, LadderData, LadderWeek, Movement, PlayerProfile, PlayerResult } from "@/lib/types";
-import { boxHasResult, buildHeadToHeadRecord, isRosterStatAppearance, sortBoxPlayers } from "@/lib/ladder";
+import type { CareerProfile, ConfirmedSetResult, LadderBox, LadderData, LadderWeek, Movement, PlayerProfile, PlayerResult, SeasonData, SeasonDefinition } from "@/lib/types";
+import { boxHasResult, buildHeadToHeadRecord, buildLadderData, isRosterStatAppearance, sortBoxPlayers } from "@/lib/ladder";
 import { buildLeagueHighlights, type LeagueHighlightKind } from "@/lib/leagueHighlights";
 import { buildWeeklyAwards, type WeeklyAwardKind } from "@/lib/weeklyAwards";
+import { buildCareerProfiles, SEASON_SHEETS } from "@/lib/seasons";
 
-export type LadderSection = "home" | "upcoming" | "results" | "stats" | "head-to-head";
+export type LadderSection = "home" | "upcoming" | "results" | "stats" | "head-to-head" | "seasons" | "season";
 type StatsMode = "leaders" | "ranking";
 
 const heroScoreFrames = [
@@ -652,7 +654,7 @@ function LadderGrid({
 }
 
 function RankingTrend({ history }: { history: PlayerProfile["rankingHistory"] }) {
-  const points = history.slice(-8);
+  const points = history.slice(-6);
   if (!points.length) return <div className="ranking-trend-empty">Ranking history is not available.</div>;
   const ranks = points.map((point) => point.rank);
   const minRank = Math.min(...ranks);
@@ -681,28 +683,44 @@ function RankingTrend({ history }: { history: PlayerProfile["rankingHistory"] })
   );
 }
 
+function BoxTrend({ history, rankings }: { history: PlayerResult[]; rankings: PlayerProfile["rankingHistory"] }) {
+  const weekByDate = new Map(rankings.map((point) => [point.dateKey, point.week]));
+  const points = history.filter((item) => item.movement).slice(0, 6).reverse().map((item, index) => ({ ...item, week: weekByDate.get(item.dateKey) || index + 1 }));
+  if (!points.length) return <div className="ranking-trend-empty">Box history is not available.</div>;
+  const boxes = points.map((point) => point.box);
+  const minBox = Math.min(...boxes);
+  const maxBox = Math.max(...boxes);
+  const coordinates = points.map((point, index) => ({ ...point, x: points.length === 1 ? 210 : 24 + (index * 372) / (points.length - 1), y: minBox === maxBox ? 52 : 18 + ((point.box - minBox) * 68) / (maxBox - minBox) }));
+  return <div className="ranking-trend box-trend"><svg viewBox="0 0 420 118" role="img" aria-label={`Weekly box position from Box ${points[0].box} to Box ${points.at(-1)?.box}`}><line x1="24" y1="86" x2="396" y2="86" />{coordinates.length > 1 ? <polyline points={coordinates.map((point) => `${point.x},${point.y}`).join(" ")} /> : null}{coordinates.map((point) => <g key={point.dateKey} className={point.movement.toLowerCase()}><circle cx={point.x} cy={point.y} r="12" /><text x={point.x} y={point.y + 4} textAnchor="middle">{point.box}</text><text className="week-label" x={point.x} y="110" textAnchor="middle">W{point.week}</text></g>)}</svg></div>;
+}
+
 function ProfilePanel({
-  profile,
-  weeks,
+  profile: initialProfile,
+  seasons,
+  career,
+  initialSeasonId,
   canViewCurrentBox,
   onViewCurrentBox,
   onClose,
 }: {
   profile: PlayerProfile;
-  weeks: LadderWeek[];
+  seasons: SeasonData[];
+  career?: CareerProfile;
+  initialSeasonId: SeasonDefinition["id"];
   canViewCurrentBox: boolean;
   onViewCurrentBox: () => void;
   onClose: () => void;
 }) {
+  const initialSeason = career?.seasons.find((entry) => entry.season.id === initialSeasonId) || career?.seasons.find((entry) => entry.season.status === "current") || career?.seasons[0];
+  const [profileScope, setProfileScope] = useState<string>(initialSeason?.season.id || "career");
+  const seasonEntry = career?.seasons.find((entry) => entry.season.id === profileScope);
+  const profile = seasonEntry?.profile || initialProfile;
+  const isCareer = profileScope === "career";
+  const isCurrentSeason = seasonEntry?.season.status === "current";
+  const weeks = seasons.find((entry) => entry.season.id === seasonEntry?.season.id)?.data.weeks || [];
   const latest = profile.history[0];
-  const trend = profile.history
-    .filter((item) => item.movement)
-    .slice(0, 6)
-    .reverse();
-  const trendMin = Math.min(...trend.map((item) => item.box));
-  const trendMax = Math.max(...trend.map((item) => item.box));
-  const trendCenter = (trendMin + trendMax) / 2;
-  const trendStep = trendMax > trendMin ? Math.min(12, 36 / (trendMax - trendMin)) : 0;
+  const boxRangeCount = profile.history.filter((item) => item.movement).slice(0, 6).length;
+  const rankRangeCount = profile.rankingHistory.slice(-6).length;
   const historyBoxes = new Map<string, LadderBox>();
   for (const week of weeks) {
     for (const box of week.boxes) {
@@ -756,7 +774,7 @@ function ProfilePanel({
     drawFitText(profile.name, 72, 285, 936, 82, 700);
     ctx.fillStyle = "#a6b1a9";
     ctx.font = "500 24px Arial";
-    ctx.fillText(`AS OF ${asOf.toUpperCase()}`, 72, 350);
+    ctx.fillText(isCurrentSeason ? `AS OF ${asOf.toUpperCase()}` : `${seasonEntry?.season.label.toUpperCase()} FINAL`, 72, 350);
 
     const movement = latestResult?.movement || "RESULT";
     const movementColor = movement === "UP" ? "#d9ff57" : movement === "DOWN" ? "#ff6b4a" : "#b7efdc";
@@ -766,11 +784,11 @@ function ProfilePanel({
     ctx.fillRect(72, 390, 360, 430);
     ctx.fillStyle = "#11251e";
     ctx.font = "700 24px Arial";
-    ctx.fillText("LEAGUE RANK", 112, 470);
+    ctx.fillText(isCurrentSeason ? "LEAGUE RANK" : "FINAL LEAGUE RANK", 112, 470);
     ctx.font = "800 160px Arial";
     ctx.fillText(profile.rank ? `#${profile.rank}` : "—", 105, 650);
     ctx.font = "700 31px Arial";
-    ctx.fillText(`BOX ${profile.currentBox}`, 112, 725);
+    ctx.fillText(`${isCurrentSeason ? "BOX" : "FINAL BOX"} ${profile.currentBox}`, 112, 725);
     ctx.textAlign = "left";
 
     ctx.fillStyle = "#647269";
@@ -918,48 +936,55 @@ function ProfilePanel({
           <span className="profile-avatar">{initials(profile.name)}</span>
           <div><span>PLAYER PROFILE</span><h2>{profile.name}</h2></div>
         </div>
-        <div className="profile-position">
+        <div className="profile-mode-tabs" aria-label="Player profile scope">
+          {career?.seasons.map((entry) => <button key={entry.season.id} className={profileScope === entry.season.id ? "active" : ""} onClick={() => setProfileScope(entry.season.id)}>{entry.season.shortLabel}</button>)}
+          <button className={isCareer ? "active" : ""} onClick={() => setProfileScope("career")}>Career</button>
+        </div>
+        {isCareer && career ? <>
+          <div className="career-profile-summary">
+            <div><strong>{career.seasonsPlayed}</strong><span>Seasons</span></div>
+            <div><strong>{career.weeksPlayed}</strong><span>Weeks</span></div>
+            <div><strong>{career.promotions}</strong><span>Moves up</span></div>
+            <div><strong>{career.setsWon}</strong><span>Sets won</span></div>
+          </div>
+          <section className="career-season-history">
+            <h3>Season history</h3>
+            {career.seasons.map((entry) => <article key={entry.season.id}>
+              <div><strong>{entry.season.label}</strong><span>{entry.season.status === "current" ? "CURRENT" : "ARCHIVE"}</span></div>
+              <dl><div><dt>Rank</dt><dd>{entry.profile.rank ? `#${entry.profile.rank}` : "—"}</dd></div><div><dt>Best box</dt><dd>{entry.profile.highestBox}</dd></div><div><dt>Weeks</dt><dd>{entry.profile.weeksPlayed}</dd></div><div><dt>UP</dt><dd>{entry.profile.promotions}</dd></div><div><dt>Sets</dt><dd>{entry.profile.setsWon}</dd></div></dl>
+            </article>)}
+          </section>
+        </> : <><div className="profile-position">
           <div className="profile-rank-highlight">
-            <span>LEAGUE RANK</span>
+            <span>{isCurrentSeason ? "LEAGUE RANK" : "FINAL LEAGUE RANK"}</span>
             <strong>{profile.rank ? `#${profile.rank}` : "—"}</strong>
           </div>
           <button
             type="button"
             className="profile-box-position"
             onClick={onViewCurrentBox}
-            disabled={!canViewCurrentBox}
-            aria-label={`View upcoming matches for Box ${profile.currentBox}`}
+            disabled={!isCurrentSeason || !canViewCurrentBox}
+            aria-label={isCurrentSeason ? `View upcoming matches for Box ${profile.currentBox}` : `Final position: Box ${profile.currentBox}`}
           >
-            <span>CURRENT BOX</span>
+            <span>{isCurrentSeason ? "CURRENT BOX" : "FINAL BOX"}</span>
             <strong>BOX {profile.currentBox}</strong>
-            <small>{latest?.time || ""} · Court {latest?.court || "TBD"}</small>
-            {canViewCurrentBox ? <span className="profile-box-link">VIEW BOX <ArrowRight size={14} /></span> : null}
+            {isCurrentSeason ? <small>{latest?.time || ""} · Court {latest?.court || "TBD"}</small> : null}
+            {isCurrentSeason && canViewCurrentBox ? <span className="profile-box-link">VIEW BOX <ArrowRight size={14} /></span> : null}
           </button>
         </div>
         <button className="share-card-button" onClick={shareProfile}><Share2 size={18} /> Share my ladder card</button>
         <div className="profile-stats">
           <div><strong>{profile.highestBox}</strong><span>Highest box</span></div>
           <div><strong>{profile.promotions}</strong><span>Moves up</span></div>
-          <div><strong>{profile.rank ? `#${profile.rank}` : "—"}</strong><span>Current league rank</span></div>
+          <div><strong>{profile.rank ? `#${profile.rank}` : "—"}</strong><span>{isCurrentSeason ? "Current league rank" : "Final league rank"}</span></div>
           <div><strong>{profile.highestRank ? `#${profile.highestRank}` : "—"}</strong><span>Highest league rank</span></div>
           <div><strong>{profile.weeksPlayed}</strong><span>Weeks played</span></div>
           <div><strong>{profile.setsWon}</strong><span>Sets won</span></div>
         </div>
         <section className="history-section">
-          <h3>Recent Box Form</h3>
-          <div className="trend-line">
-            {trend.map((item) => (
-              <span
-                key={`${item.dateKey}-${item.box}`}
-                className={item.movement.toLowerCase()}
-                style={{ transform: `translateY(${(item.box - trendCenter) * trendStep}px)` }}
-                title={`${item.date}: Box ${item.box}`}
-              >
-                {item.box}
-              </span>
-            ))}
-          </div>
-          <h3>Weekly Ladder Rank</h3>
+          <div className="trend-section-title"><h3>Recent Box Form</h3><span>LAST {boxRangeCount} {boxRangeCount === 1 ? "WEEK" : "WEEKS"}</span></div>
+          <BoxTrend history={profile.history} rankings={profile.rankingHistory} />
+          <div className="trend-section-title"><h3>Weekly Ladder Rank</h3><span>LAST {rankRangeCount} {rankRangeCount === 1 ? "WEEK" : "WEEKS"}</span></div>
           <RankingTrend history={profile.rankingHistory} />
           <h3>Results</h3>
           <div className="history-list">
@@ -984,6 +1009,7 @@ function ProfilePanel({
             })}
           </div>
         </section>
+        </>}
       </aside>
     </div>
   );
@@ -1017,10 +1043,35 @@ function RankingView({ profiles, onSelect }: { profiles: PlayerProfile[]; onSele
   );
 }
 
+function LeaderboardPager({ page, count, pageSize = 10, onChange }: { page: number; count: number; pageSize?: number; onChange: (page: number) => void }) {
+  const pages = Math.ceil(count / pageSize);
+  if (pages <= 1) return null;
+  return <nav className="leaderboard-pager" aria-label="Leaderboard pages"><button disabled={page === 0} onClick={() => onChange(page - 1)} aria-label="Previous page"><ChevronLeft size={16} /></button><span>{page + 1} / {pages}</span><button disabled={page >= pages - 1} onClick={() => onChange(page + 1)} aria-label="Next page"><ChevronRight size={16} /></button></nav>;
+}
+
+function SeasonLeaderboard({ title, icon, entries, onSelect, value, detail }: { title: string; icon: React.ReactNode; entries: PlayerProfile[]; onSelect: (name: string) => void; value: (profile: PlayerProfile) => React.ReactNode; detail: (profile: PlayerProfile) => string }) {
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+  const visible = entries.slice(page * pageSize, (page + 1) * pageSize);
+  return <section className="leaderboard-card"><header>{icon}<h3>{title}</h3></header>{visible.map((profile, index) => <button key={profile.name} onClick={() => onSelect(profile.name)}><span className="rank">{page * pageSize + index + 1}</span><span className="avatar small">{initials(profile.name)}</span><span className="leader-name"><strong>{profile.name}</strong><small>{detail(profile)}</small></span><strong className="lime-number">{value(profile)}</strong></button>)}<LeaderboardPager page={page} count={entries.length} onChange={setPage} /></section>;
+}
+
+function CareerLeaderboard({ title, icon, entries, onSelect, value, detail, tooltip }: { title: string; icon: React.ReactNode; entries: CareerProfile[]; onSelect: (name: string) => void; value: (profile: CareerProfile) => React.ReactNode; detail: (profile: CareerProfile) => string; tooltip?: string }) {
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+  const visible = entries.slice(page * pageSize, (page + 1) * pageSize);
+  return <section className="leaderboard-card career-leaderboard"><header>{icon}<div className="leaderboard-title"><h3>{title}</h3>{tooltip ? <button type="button" className="leaderboard-info" aria-label={`About ${title}`}><Info size={13} /><span className="leaderboard-tooltip" role="tooltip">{tooltip}</span></button> : null}</div></header>{visible.map((profile, index) => <button key={profile.name} onClick={() => onSelect(profile.name)}><span className="rank">{page * pageSize + index + 1}</span><span className="avatar small">{initials(profile.name)}</span><span className="leader-name"><strong>{profile.name}</strong><small>{detail(profile)}</small></span><strong className="lime-number">{value(profile)}</strong></button>)}<LeaderboardPager page={page} count={entries.length} onChange={setPage} /></section>;
+}
+
 function StatsView({ profiles, onSelect }: { profiles: PlayerProfile[]; onSelect: (name: string) => void }) {
   const active = profiles.filter((profile) => profile.weeksPlayed > 0);
-  const climbers = [...active].sort((a, b) => b.promotions - a.promotions || a.currentBox - b.currentBox).slice(0, 8);
-  const setWinners = [...active].sort((a, b) => b.setsWon - a.setsWon || b.setsPlayed - a.setsPlayed || a.currentBox - b.currentBox).slice(0, 8);
+  const climbers = [...active].sort((a, b) => b.promotions - a.promotions || a.currentBox - b.currentBox);
+  const setWinners = [...active].sort((a, b) => b.setsWon - a.setsWon || b.setsPlayed - a.setsPlayed || a.currentBox - b.currentBox);
+  const boxClimbers = [...active].sort((a, b) => {
+    const aStart = [...a.history].filter(isRosterStatAppearance).sort((x, y) => x.dateKey.localeCompare(y.dateKey))[0]?.box ?? a.currentBox;
+    const bStart = [...b.history].filter(isRosterStatAppearance).sort((x, y) => x.dateKey.localeCompare(y.dateKey))[0]?.box ?? b.currentBox;
+    return (bStart - b.currentBox) - (aStart - a.currentBox) || a.currentBox - b.currentBox;
+  });
   const hot = [...active].filter((profile) => profile.streak >= 2).sort((a, b) => b.streak - a.streak || b.promotions - a.promotions).slice(0, 5);
   return (
     <div className="stats-layout">
@@ -1028,43 +1079,78 @@ function StatsView({ profiles, onSelect }: { profiles: PlayerProfile[]; onSelect
         <header><Flame size={20} /><h3>Hot streaks</h3></header>
         <div>{hot.length ? hot.map((profile) => <button key={profile.name} onClick={() => onSelect(profile.name)}><strong>{profile.name}</strong><span>{profile.streak}× UP</span></button>) : <p className="hot-empty">No active UP streaks.</p>}</div>
       </section>
-      <section className="leaderboard-card">
-        <header><Trophy size={20} /><h3>Most moves up</h3></header>
-        {climbers.map((profile, index) => (
-          <button key={profile.name} onClick={() => onSelect(profile.name)}>
-            <span className="rank">{index + 1}</span><span className="avatar small">{initials(profile.name)}</span>
-            <span className="leader-name"><strong>{profile.name}</strong><small>Current box: {profile.currentBox}</small></span>
-            <strong className="lime-number">{profile.promotions}</strong>
-          </button>
-        ))}
-      </section>
-      <section className="leaderboard-card">
-        <header>
-          <CircleCheckBig size={20} />
-          <div>
-            <div className="leaderboard-title"><h3>Most sets won</h3><button type="button" className="leaderboard-info" aria-label="About most sets won" aria-describedby="sets-won-detail"><Info size={13} /><span id="sets-won-detail" className="leaderboard-tooltip" role="tooltip">Substitute sets are excluded.</span></button></div>
-          </div>
-        </header>
-        {setWinners.map((profile, index) => (
-          <button key={profile.name} onClick={() => onSelect(profile.name)}>
-            <span className="rank">{index + 1}</span><span className="avatar small">{initials(profile.name)}</span>
-            <span className="leader-name"><strong>{profile.name}</strong><small>{profile.setsPlayed} sets played</small></span>
-            <strong className="lime-number">{profile.setsWon}</strong>
-          </button>
-        ))}
-      </section>
+      <SeasonLeaderboard title="Most moves up" icon={<Trophy size={20} />} entries={climbers} onSelect={onSelect} value={(profile) => profile.promotions} detail={(profile) => `Current box: ${profile.currentBox}`} />
+      <SeasonLeaderboard title="Most sets won" icon={<CircleCheckBig size={20} />} entries={setWinners} onSelect={onSelect} value={(profile) => profile.setsWon} detail={(profile) => `${profile.setsPlayed} sets played`} />
+      <SeasonLeaderboard title="Biggest climbers" icon={<TrendingUp size={20} />} entries={boxClimbers} onSelect={onSelect} value={(profile) => { const start = [...profile.history].filter(isRosterStatAppearance).sort((a, b) => a.dateKey.localeCompare(b.dateKey))[0]?.box ?? profile.currentBox; const change = start - profile.currentBox; return `${change > 0 ? "+" : ""}${change}`; }} detail={(profile) => { const start = [...profile.history].filter(isRosterStatAppearance).sort((a, b) => a.dateKey.localeCompare(b.dateKey))[0]?.box ?? profile.currentBox; return `Box ${start} to Box ${profile.currentBox}`; }} />
     </div>
   );
 }
 
-function CompareView({ profiles, weeks, onSelect }: { profiles: PlayerProfile[]; weeks: LadderWeek[]; onSelect: (name: string) => void }) {
-  const active = profiles
+function CareerStatsView({ profiles, seasons, onSelect }: { profiles: CareerProfile[]; seasons: SeasonData[]; onSelect: (name: string) => void }) {
+  const moves = [...profiles].sort((a, b) => b.promotions - a.promotions || b.weeksPlayed - a.weeksPlayed);
+  const sets = [...profiles].sort((a, b) => b.setsWon - a.setsWon || b.setsPlayed - a.setsPlayed);
+  const rates = [...profiles].filter((profile) => profile.setsPlayed >= 15).sort((a, b) => (b.setsWon / b.setsPlayed) - (a.setsWon / a.setsPlayed) || b.setsPlayed - a.setsPlayed);
+  const confirmedSets = seasons.reduce((sum, season) => sum + season.data.weeks.reduce((weekSum, week) => weekSum + week.boxes.reduce((boxSum, box) => boxSum + box.setResults.length, 0), 0), 0);
+  const mostMatches = [...profiles].sort((a, b) => b.setsPlayed - a.setsPlayed || a.name.localeCompare(b.name))[0];
+  return (
+    <div className="career-stats-layout">
+      <section className="career-summary-card">
+        <header><span>LEAGUE HISTORY</span><small>{seasons.length} seasons included</small></header>
+        <div><strong>{profiles.length}</strong><small>Participants</small></div>
+        <div><strong>{confirmedSets}</strong><small>Total matches played</small></div>
+        <div className="career-summary-name"><strong>{mostMatches?.name || "—"}</strong><small>Most matches played · {mostMatches?.setsPlayed || 0}</small></div>
+      </section>
+      <CareerLeaderboard title="Most career moves up" icon={<TrendingUp size={20} />} entries={moves} onSelect={onSelect} value={(profile) => profile.promotions} detail={(profile) => `${profile.weeksPlayed} weeks played`} />
+      <CareerLeaderboard title="Most confirmed sets won" icon={<CircleCheckBig size={20} />} entries={sets} onSelect={onSelect} value={(profile) => profile.setsWon} detail={(profile) => `${profile.setsPlayed} recorded sets`} />
+      <CareerLeaderboard title="Best set win rate" icon={<Trophy size={20} />} entries={rates} onSelect={onSelect} value={(profile) => `${Math.round((profile.setsWon / profile.setsPlayed) * 100)}%`} detail={(profile) => `${profile.setsWon} of ${profile.setsPlayed} sets won`} tooltip="Players must have at least 15 confirmed sets to qualify." />
+    </div>
+  );
+}
+
+function careerAsProfiles(careers: CareerProfile[]): PlayerProfile[] {
+  return careers.map((career) => {
+    const current = career.seasons.find((entry) => entry.season.status === "current")?.profile || career.seasons[0].profile;
+    return {
+      ...current,
+      rank: current.rank,
+      highestRank: career.bestRank,
+      highestBox: career.highestBox,
+      weeksPlayed: career.weeksPlayed,
+      promotions: career.promotions,
+      demotions: career.demotions,
+      stays: career.stays,
+      setsPlayed: career.setsPlayed,
+      setsWon: career.setsWon,
+      totalGames: career.totalGames,
+      averageGames: career.weeksPlayed ? career.totalGames / career.weeksPlayed : 0,
+      history: career.seasons.flatMap((entry) => entry.profile.history).sort((a, b) => b.dateKey.localeCompare(a.dateKey)),
+      rankingHistory: current.rankingHistory,
+    };
+  });
+}
+
+function CompareView({ seasons, careers, selectedSeason, onSelect, allTime = false }: { seasons: SeasonData[]; careers: CareerProfile[]; selectedSeason: SeasonDefinition; onSelect: (name: string) => void; allTime?: boolean }) {
+  const router = useRouter();
+  const allProfiles = useMemo(() => careerAsProfiles(careers), [careers]);
+  const scopedSeason = seasons.find((entry) => entry.season.id === selectedSeason.id) || seasons[0];
+  const scopedProfiles = allTime ? allProfiles : scopedSeason.data.profiles;
+  const weeks = allTime ? seasons.flatMap((entry) => entry.data.weeks) : scopedSeason.data.weeks;
+  const active = allProfiles
     .filter((profile) => profile.weeksPlayed > 0)
     .sort((a, b) => firstName(a.name).localeCompare(firstName(b.name)) || a.name.localeCompare(b.name));
-  const [leftName, setLeftName] = useState(active[0]?.name || "");
-  const [rightName, setRightName] = useState(active[1]?.name || "");
-  const left = active.find((profile) => profile.name === leftName);
-  const right = active.find((profile) => profile.name === rightName);
+  const [leftName, setLeftName] = useState("");
+  const [rightName, setRightName] = useState("");
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const leftParam = params.get("left");
+    const rightParam = params.get("right");
+    if (leftParam && active.some((profile) => profile.name === leftParam)) setLeftName(leftParam);
+    if (rightParam && active.some((profile) => profile.name === rightParam)) setRightName(rightParam);
+  }, []);
+  const leftScoped = scopedProfiles.find((profile) => profile.name === leftName);
+  const rightScoped = scopedProfiles.find((profile) => profile.name === rightName);
+  const left = leftScoped || active.find((profile) => profile.name === leftName);
+  const right = rightScoped || active.find((profile) => profile.name === rightName);
   const headToHead = left && right ? buildHeadToHeadRecord(weeks, left.name, right.name) : null;
   const sharedBoxes = left && right
     ? weeks
@@ -1078,16 +1164,30 @@ function CompareView({ profiles, weeks, onSelect }: { profiles: PlayerProfile[];
       }))
       .sort((first, second) => second.dateKey.localeCompare(first.dateKey))
     : [];
-  const metrics = left && right ? [
+  const metrics = leftScoped && rightScoped ? [
     ["Sets H2H", headToHead?.leftSetsWonAgainst || 0, headToHead?.rightSetsWonAgainst || 0, "higher"],
-    ["League rank", left.rank || 0, right.rank || 0, "lower"],
-    ["Current box", left.currentBox, right.currentBox, "lower"],
-    ["Highest box", left.highestBox, right.highestBox, "lower"],
-    ["Moves up", left.promotions, right.promotions, "higher"],
-    ["Weeks played", left.weeksPlayed, right.weeksPlayed, "higher"],
-    ["Sets won", left.setsWon, right.setsWon, "higher"],
-    ["Games won", left.totalGames, right.totalGames, "higher"],
+    [allTime ? "Best rank" : "League rank", allTime ? leftScoped.highestRank || 0 : leftScoped.rank || 0, allTime ? rightScoped.highestRank || 0 : rightScoped.rank || 0, "lower"],
+    [allTime ? "Best box" : "Current box", allTime ? leftScoped.highestBox : leftScoped.currentBox, allTime ? rightScoped.highestBox : rightScoped.currentBox, "lower"],
+    ["Highest box", leftScoped.highestBox, rightScoped.highestBox, "lower"],
+    ["Moves up", leftScoped.promotions, rightScoped.promotions, "higher"],
+    ["Weeks played", leftScoped.weeksPlayed, rightScoped.weeksPlayed, "higher"],
+    ["Sets won", leftScoped.setsWon, rightScoped.setsWon, "higher"],
+    ["Games won", leftScoped.totalGames, rightScoped.totalGames, "higher"],
   ] as const : [];
+  const leftCareer = careers.find((career) => career.name === leftName);
+  const rightCareer = careers.find((career) => career.name === rightName);
+  const sharedSeasonIds = new Set(leftCareer?.seasons.filter((entry) => rightCareer?.seasons.some((rightEntry) => rightEntry.season.id === entry.season.id)).map((entry) => entry.season.id) || []);
+  const scopeHref = (path: string, leftValue = leftName, rightValue = rightName) => `${path}?${new URLSearchParams({ left: leftValue, right: rightValue }).toString()}`;
+  const selectPlayer = (side: "left" | "right", name: string) => {
+    const nextLeft = side === "left" ? name : leftName;
+    const nextRight = side === "right" ? name : rightName;
+    if (side === "left") setLeftName(name); else setRightName(name);
+    if (!nextLeft || !nextRight) return;
+    const leftEntry = careers.find((career) => career.name === nextLeft);
+    const rightEntry = careers.find((career) => career.name === nextRight);
+    const bothCurrent = leftEntry?.seasons.some((entry) => entry.season.status === "current") && rightEntry?.seasons.some((entry) => entry.season.status === "current");
+    router.push(scopeHref(bothCurrent ? "/head-to-head" : "/head-to-head/all-time", nextLeft, nextRight));
+  };
 
   async function shareHeadToHead() {
     if (!left || !right || !headToHead) return;
@@ -1211,16 +1311,20 @@ function CompareView({ profiles, weeks, onSelect }: { profiles: PlayerProfile[];
   return (
     <div className="compare-card">
       <div className="compare-pickers">
-        <label><span>PLAYER ONE</span><select value={leftName} onChange={(event) => setLeftName(event.target.value)}>{active.map((profile) => <option key={profile.name}>{profile.name}</option>)}</select></label>
+        <label><span>PLAYER ONE</span><select value={leftName} onChange={(event) => selectPlayer("left", event.target.value)}><option value="">Select a player</option>{active.map((profile) => <option key={profile.name}>{profile.name}</option>)}</select></label>
         <span className="versus">VS</span>
-        <label><span>PLAYER TWO</span><select value={rightName} onChange={(event) => setRightName(event.target.value)}>{active.map((profile) => <option key={profile.name}>{profile.name}</option>)}</select></label>
+        <label><span>PLAYER TWO</span><select value={rightName} onChange={(event) => selectPlayer("right", event.target.value)}><option value="">Select a player</option>{active.map((profile) => <option key={profile.name}>{profile.name}</option>)}</select></label>
       </div>
       {left && right ? <>
+        <div className="h2h-scope" aria-label="Head-to-head scope">
+          {seasons.filter(({ season }) => sharedSeasonIds.has(season.id)).map(({ season }) => <Link key={season.id} className={!allTime && season.id === selectedSeason.id ? "active" : ""} href={scopeHref(season.status === "current" ? "/head-to-head" : `/seasons/${season.id}/head-to-head`)}>{season.shortLabel}</Link>)}
+          <Link className={allTime ? "active" : ""} href={scopeHref("/head-to-head/all-time")}>ALL TIME</Link>
+        </div>
         <div className="compare-names">
           <button onClick={() => onSelect(left.name)}><span className="profile-avatar mini">{initials(left.name)}</span><strong>{left.name}</strong></button>
           <button onClick={() => onSelect(right.name)}><span className="profile-avatar mini">{initials(right.name)}</span><strong>{right.name}</strong></button>
         </div>
-        <button className="share-card-button compare-share-button" onClick={shareHeadToHead}><Share2 size={18} /> Share head-to-head card</button>
+        {leftScoped && rightScoped ? <button className="share-card-button compare-share-button" onClick={shareHeadToHead}><Share2 size={18} /> Share head-to-head card</button> : <p className="h2h-no-season-data">One or both players have no record in {selectedSeason.label}.</p>}
         <div className="metric-list">
           {metrics.map(([label, a, b, preference]) => {
             const leftWins = preference === "lower" ? Number(a) < Number(b) : Number(a) > Number(b);
@@ -1302,6 +1406,88 @@ function localWeekday(value: string): string {
   return new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "America/Chicago" }).format(new Date(value));
 }
 
+function seasonBasePath(season: SeasonDefinition): string {
+  return season.status === "current" ? "/" : `/seasons/${season.id}`;
+}
+
+function SeasonBar({ selected, allTime, seasons, section }: { selected: SeasonDefinition; allTime: boolean; seasons: SeasonData[]; section: LadderSection }) {
+  const sectionPath = (season: SeasonDefinition) => {
+    if (season.status === "current") return section === "results" ? "/results" : section === "stats" ? "/stats" : "/";
+    return `/seasons/${season.id}${section === "results" ? "/results" : section === "stats" ? "/stats" : ""}`;
+  };
+  return (
+    <div className="season-bar">
+      <details className="season-picker">
+        <summary className="season-current">
+          <span>{allTime ? "CAREER VIEW" : selected.status === "current" ? "CURRENT SEASON" : "ARCHIVED SEASON"}</span>
+          <strong>{allTime ? "All time" : selected.label}</strong>
+          <ChevronDown size={17} />
+        </summary>
+        <div className="season-picker-menu">
+          {seasons.map(({ season }) => <Link className={!allTime && season.id === selected.id ? "active" : ""} href={sectionPath(season)} key={season.id}><span>{season.label}</span><small>{season.status === "current" ? "CURRENT" : "ARCHIVE"}</small></Link>)}
+          {section === "stats" ? <Link className={allTime ? "active" : ""} href="/stats/all-time"><span>All time</span><small>CAREER</small></Link> : null}
+        </div>
+      </details>
+      {selected.status === "archived" ? (
+        <nav aria-label={`${selected.label} sections`}>
+          <Link href={seasonBasePath(selected)}>Overview</Link>
+          <Link href={`${seasonBasePath(selected)}/results`}>Results</Link>
+          <Link href={`${seasonBasePath(selected)}/stats`}>Stats</Link>
+        </nav>
+      ) : null}
+    </div>
+  );
+}
+
+function SeasonsView({ seasons }: { seasons: SeasonData[] }) {
+  return (
+    <div className="seasons-view">
+      <div className="section-head season-page-head"><div><span className="eyebrow"><i /> LEAGUE ARCHIVE</span><h2>Seasons</h2><p>Current play stays first. Past seasons remain available as permanent records.</p></div></div>
+      <div className="season-card-grid">
+        {seasons.map(({ season, data }) => {
+          const leader = data.ranking[0];
+          const completed = data.weeks.filter((week) => week.completed).length;
+          const href = seasonBasePath(season);
+          return (
+            <Link href={href} className={`season-card ${season.status}`} key={season.id}>
+              <span>{season.status === "current" ? "CURRENT" : "ARCHIVE"}</span>
+              <h3>{season.label}</h3>
+              <p>{season.dateRange}</p>
+              <div><strong>{completed}</strong><small>recorded weeks</small></div>
+              <div><strong>{data.profiles.filter((profile) => profile.weeksPlayed).length}</strong><small>roster players</small></div>
+              <div className="season-card-footer"><span>{leader ? `${season.status === "current" ? "Leader" : "Final leader"}: ${leader.name}` : "Season record"}</span><ArrowRight size={20} /></div>
+            </Link>
+          );
+        })}
+      </div>
+      <div className="archive-all-time">
+        <div><span>CAREER RECORDS</span><h3>All-time league numbers</h3><p>Compare players across Winter, Spring, and Summer 2026.</p></div>
+        <div><Link href="/stats/all-time">All-time stats <ArrowRight size={18} /></Link><Link href="/head-to-head/all-time">All-time H2H <ArrowRight size={18} /></Link></div>
+      </div>
+    </div>
+  );
+}
+
+function SeasonOverview({ season, data, onSelect }: { season: SeasonDefinition; data: LadderData; onSelect: (name: string) => void }) {
+  const active = data.profiles.filter((profile) => profile.weeksPlayed);
+  const leader = data.ranking[0];
+  const mostUp = [...active].sort((a, b) => b.promotions - a.promotions)[0];
+  const mostSets = [...active].sort((a, b) => b.setsWon - a.setsWon)[0];
+  return (
+    <div className="season-overview">
+      <header className="season-masthead"><span>ARCHIVED SEASON</span><h1>{season.label}</h1><p>{season.dateRange}</p></header>
+      <div className="season-recap-grid">
+        <article className="season-recap-feature"><span>TOP OF THE TABLE</span><strong>{leader?.name || "Not recorded"}</strong><small>{leader ? `Box ${leader.box} · Rank #${leader.rank}` : ""}</small></article>
+        <article><span>MOST MOVES UP</span><strong>{mostUp?.name || "—"}</strong><small>{mostUp ? `${mostUp.promotions} moves` : ""}</small></article>
+        <article><span>MOST SETS WON</span><strong>{mostSets?.name || "—"}</strong><small>{mostSets ? `${mostSets.setsWon} confirmed` : ""}</small></article>
+      </div>
+      <div className="season-overview-actions"><Link href={`/seasons/${season.id}/results`}>Browse weekly results <ArrowRight size={18} /></Link><Link href={`/seasons/${season.id}/stats`}>View season stats <ArrowRight size={18} /></Link></div>
+      <div className="section-head"><div><h2>Final Season Ranking</h2><p>Last recorded ladder position for each player.</p></div></div>
+      <RankingView profiles={data.profiles} onSelect={onSelect} />
+    </div>
+  );
+}
+
 function HomeDashboard({ data, upcoming, isNewWeek }: { data: LadderData; upcoming: LadderWeek | null; isNewWeek: boolean }) {
   const latest = data.latestResults;
   const resultsLead = !isNewWeek && Boolean(latest && latest.status !== "scheduled");
@@ -1359,6 +1545,7 @@ function HomeDashboard({ data, upcoming, isNewWeek }: { data: LadderData; upcomi
         <div className="home-explore-grid">
           <Link href="/stats" className="home-explore-card"><ListOrdered size={25} /><span><strong>Stats & ranking</strong><small>Leaders, form, and the live table</small></span><ArrowRight size={20} /></Link>
           <Link href="/head-to-head" className="home-explore-card"><UsersRound size={25} /><span><strong>Head to head</strong><small>Compare records and shared sets</small></span><ArrowRight size={20} /></Link>
+          <Link href="/seasons" className="home-explore-card"><History size={25} /><span><strong>Previous seasons</strong><small>Browse past results and final rankings</small></span><ArrowRight size={20} /></Link>
         </div>
       </section>
       <p className="ingested-at"><IngestedAt value={data.updatedAt} /></p>
@@ -1366,20 +1553,39 @@ function HomeDashboard({ data, upcoming, isNewWeek }: { data: LadderData; upcomi
   );
 }
 
-export function LadderApp({ data, section }: { data: LadderData; section: LadderSection }) {
+export function LadderApp({
+  data: initialData,
+  section,
+  selectedSeason,
+  seasons: initialSeasons,
+  allTime = false,
+}: {
+  data: LadderData;
+  section: LadderSection;
+  selectedSeason: SeasonDefinition;
+  seasons: SeasonData[];
+  careerProfiles: CareerProfile[];
+  allTime?: boolean;
+}) {
   const router = useRouter();
+  const [seasons, setSeasons] = useState(initialSeasons);
+  const data = seasons.find((entry) => entry.season.id === selectedSeason.id)?.data || initialData;
+  const careerProfiles = useMemo(() => buildCareerProfiles(seasons), [seasons]);
   const [compactMobileHeader, setCompactMobileHeader] = useState(false);
   const [statsMode, setStatsMode] = useState<StatsMode>("leaders");
   const [resultsWeekKey, setResultsWeekKey] = useState(data.latestResults?.dateKey || "");
   const [weekday, setWeekday] = useState(() => localWeekday(data.updatedAt));
   const [query, setQuery] = useState("");
   const [selectedName, setSelectedName] = useState<string | null>(null);
-  const profiles = useMemo(() => new Map(data.profiles.map((profile) => [profile.name, profile])), [data.profiles]);
+  const allTimeProfiles = useMemo(() => careerAsProfiles(careerProfiles), [careerProfiles]);
+  const displayProfiles = allTime || section === "head-to-head" ? allTimeProfiles : data.profiles;
+  const profiles = useMemo(() => new Map(displayProfiles.map((profile) => [profile.name, profile])), [displayProfiles]);
   const resultsWeeks = useMemo(() => data.weeks.filter((candidate) => candidate.status !== "scheduled"), [data.weeks]);
   const searchResults = query.trim().length > 1
-    ? data.profiles.filter((profile) => profile.name.toLowerCase().includes(query.toLowerCase())).slice(0, 7)
+    ? allTimeProfiles.filter((profile) => profile.name.toLowerCase().includes(query.toLowerCase())).slice(0, 7)
     : [];
-  const selected = selectedName ? profiles.get(selectedName) : undefined;
+  const selected = selectedName ? allTimeProfiles.find((profile) => profile.name === selectedName) : undefined;
+  const selectedCareer = selectedName ? careerProfiles.find((profile) => profile.name === selectedName) : undefined;
   const resultsWeek = resultsWeeks.find((candidate) => candidate.dateKey === resultsWeekKey) || data.latestResults;
   const resultsWeekIndex = resultsWeeks.findIndex((candidate) => candidate.dateKey === resultsWeek?.dateKey);
   const previousResultsWeek = resultsWeeks[resultsWeekIndex - 1];
@@ -1390,6 +1596,24 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
   ) || null;
   const upcoming = isNewWeek ? nextScheduledWeek : data.upcoming;
   const week = section === "upcoming" ? upcoming : resultsWeek;
+  useEffect(() => {
+    const controller = new AbortController();
+    const source = SEASON_SHEETS["summer-2026"];
+    const url = `https://docs.google.com/spreadsheets/d/${source.sheetId}/gviz/tq?tqx=out:csv&gid=${source.gid}&refresh=${Date.now()}`;
+    fetch(url, { cache: "no-store", signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error(`Sheet returned ${response.status}`);
+        return response.text();
+      })
+      .then((csv) => {
+        const liveData = buildLadderData(csv, "live");
+        setSeasons((current) => current.map((entry) => entry.season.id === "summer-2026" ? { ...entry, data: liveData } : entry));
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const updateWeekday = () => setWeekday(localWeekday(new Date().toISOString()));
@@ -1397,6 +1621,10 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
     const interval = window.setInterval(updateWeekday, 60_000);
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (data.source === "live") setResultsWeekKey(data.latestResults?.dateKey || "");
+  }, [data.source, data.updatedAt, data.latestResults?.dateKey]);
 
   useEffect(() => {
     const updateHeader = () => setCompactMobileHeader(window.scrollY > 12);
@@ -1456,12 +1684,17 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
         <Search size={21} />
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a player…" aria-label="Find a player" />
         {query ? <button onClick={() => setQuery("")} aria-label="Clear search"><X size={18} /></button> : null}
-        {searchResults.length ? <div className="search-results">{searchResults.map((profile) => <button key={profile.name} onClick={() => { setSelectedName(profile.name); setQuery(""); }}><span className="avatar small">{initials(profile.name)}</span><span><strong>{profile.name}</strong><small>{profile.rank ? `#${profile.rank} in club · ` : ""}Box {profile.currentBox}</small></span><ChevronRight size={18} /></button>)}</div> : null}
+        {searchResults.length ? <div className="search-results">{searchResults.map((profile) => { const career = careerProfiles.find((entry) => entry.name === profile.name); const season = career?.seasons.find((entry) => entry.season.status === "current") || career?.seasons[0]; return <button key={profile.name} onClick={() => { setSelectedName(profile.name); setQuery(""); }}><span className="avatar small">{initials(profile.name)}</span><span><strong>{profile.name}</strong><small>{season ? `${season.season.label} · ${season.season.status === "current" ? "Box" : "Final Box"} ${season.profile.currentBox}` : "Career profile"}</small></span><ChevronRight size={18} /></button>; })}</div> : null}
       </section>
       </> : null}
 
       <section className="content-shell">
+        {["results", "stats", "season"].includes(section) ? <SeasonBar selected={selectedSeason} allTime={allTime} seasons={seasons} section={section} /> : null}
         {section === "home" ? <HomeDashboard data={data} upcoming={upcoming} isNewWeek={isNewWeek} /> : null}
+
+        {section === "seasons" ? <SeasonsView seasons={seasons} /> : null}
+
+        {section === "season" ? <SeasonOverview season={selectedSeason} data={data} onSelect={setSelectedName} /> : null}
 
         {section === "upcoming" ? <>
           <div className="section-head upcoming-section-head">
@@ -1488,7 +1721,7 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
 
         {section === "results" ? <>
           <div className="section-head">
-            <div><h2>Weekly results</h2><p>Review scores and ladder movement by week.</p></div>
+            <div><h2>{selectedSeason.status === "archived" ? `${selectedSeason.label} results` : "Weekly results"}</h2><p>Review scores and ladder movement by week.</p></div>
           </div>
           {resultsWeek ? (
             <div className="results-week-nav" aria-label="Results week navigation">
@@ -1528,26 +1761,29 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
         </> : null}
 
         {section === "stats" ? <>
-          <div className="section-head"><div><h2>League numbers</h2></div></div>
-          <div className="stats-tabs" aria-label="Stats views">
+          <div className="section-head"><div><h2>{allTime ? "All-time numbers" : `${selectedSeason.label} numbers`}</h2></div></div>
+          {!allTime ? <div className="stats-tabs" aria-label="Stats views">
             <button type="button" className={statsMode === "leaders" ? "active" : ""} aria-pressed={statsMode === "leaders"} onClick={() => setStatsMode("leaders")}>Stats</button>
             <button type="button" className={statsMode === "ranking" ? "active" : ""} aria-pressed={statsMode === "ranking"} onClick={() => setStatsMode("ranking")}>Ranking</button>
-          </div>
-          {statsMode === "leaders" ? <StatsView profiles={data.profiles} onSelect={setSelectedName} /> : <>
+          </div> : null}
+          {allTime ? <CareerStatsView profiles={careerProfiles} seasons={seasons} onSelect={setSelectedName} /> : statsMode === "leaders" ? <StatsView profiles={data.profiles} onSelect={setSelectedName} /> : <>
             <p className="ranking-explanation">Your ladder rank is your place in the next round of boxes. Movement sets the first and last positions in each box. Recent non-sub game totals order the players who stay.</p>
             <RankingView profiles={data.profiles} onSelect={setSelectedName} />
           </>}
         </> : null}
 
-        {section === "head-to-head" ? <><div className="section-head compare-section-head"><div><h2>Compare players</h2></div></div><CompareView profiles={data.profiles} weeks={data.weeks} onSelect={setSelectedName} /></> : null}
+        {section === "head-to-head" ? <><div className="section-head compare-section-head"><div><h2>Compare players</h2></div></div><CompareView seasons={seasons} careers={careerProfiles} selectedSeason={selectedSeason} onSelect={setSelectedName} allTime={allTime} /></> : null}
       </section>
 
       <footer>Built by Igor Aguiar</footer>
       {selected ? (
         <ProfilePanel
+          key={selected.name}
           profile={selected}
-          weeks={data.weeks}
-          canViewCurrentBox={Boolean(upcoming?.boxes.some((box) => box.number === selected.currentBox))}
+          seasons={seasons}
+          career={selectedCareer}
+          initialSeasonId={selectedSeason.id}
+          canViewCurrentBox={selectedSeason.status === "current" && Boolean(upcoming?.boxes.some((box) => box.number === selected.currentBox))}
           onViewCurrentBox={() => viewUpcomingBox(selected.currentBox)}
           onClose={() => setSelectedName(null)}
         />

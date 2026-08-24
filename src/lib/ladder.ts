@@ -58,7 +58,7 @@ function displayDateRange(startKey: string, endKey: string): string {
 }
 
 export function parseScore(raw: string): number[] {
-  const primary = raw.split("(")[0].trim();
+  const primary = raw.replace(/\([^)]*\)/g, " ").replace(/^\*+/, "").trim();
   if (!primary) return [];
   const separated = primary
     .split(/[,.;\s]+/)
@@ -379,7 +379,10 @@ export function buildHeadToHeadRecord(weeks: LadderWeek[], leftName: string, rig
 }
 
 export function buildLadderData(csv: string, source: "live" | "static" | "sample" = "live"): LadderData {
-  const weeks = parseLadderCsv(csv);
+  return buildLadderDataFromWeeks(parseLadderCsv(csv), source);
+}
+
+export function buildLadderDataFromWeeks(weeks: LadderWeek[], source: "live" | "static" | "sample" = "live"): LadderData {
   const completedWeeks = weeks.filter((week) => week.completed);
   const latestCompleted = completedWeeks.at(-1) || null;
   const latestResults = weeks.filter((week) => week.status !== "scheduled").at(-1) || null;

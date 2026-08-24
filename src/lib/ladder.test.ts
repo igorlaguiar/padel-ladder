@@ -26,6 +26,8 @@ describe("parseScore", () => {
     expect(parseScore("6 4 7")).toEqual([6, 4, 7]);
     expect(parseScore("6.4.7")).toEqual([6, 4, 7]);
     expect(parseScore("665")).toEqual([6, 6, 5]);
+    expect(parseScore("5, 6(4), 5")).toEqual([5, 6, 5]);
+    expect(parseScore("*6,6,5")).toEqual([6, 6, 5]);
   });
 });
 
