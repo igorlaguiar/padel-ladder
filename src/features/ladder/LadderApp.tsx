@@ -1302,11 +1302,9 @@ function localWeekday(value: string): string {
   return new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "America/Chicago" }).format(new Date(value));
 }
 
-function HomeDashboard({ data }: { data: LadderData }) {
+function HomeDashboard({ data, upcoming, isNewWeek }: { data: LadderData; upcoming: LadderWeek | null; isNewWeek: boolean }) {
   const latest = data.latestResults;
-  const upcoming = data.upcoming;
-  const resultsLead = latest?.status === "partial"
-    || (latest?.status === "complete" && !["Mon", "Tue"].includes(localWeekday(data.updatedAt)));
+  const resultsLead = !isNewWeek && Boolean(latest && latest.status !== "scheduled");
   const resultLabel = latest?.status === "partial" ? "RESULTS COMING IN" : "LATEST RESULTS";
   const upcomingLabel = latest?.status === "partial" && upcoming?.dateKey === latest.dateKey ? "STILL TO PLAY" : "NEXT UP";
   const resultDetail = latest?.status === "partial"
@@ -1321,7 +1319,7 @@ function HomeDashboard({ data }: { data: LadderData }) {
       id: "results",
       href: "/results",
       label: resultLabel,
-      title: latest?.status === "partial" ? "See today's scores" : "See what happened",
+      title: latest?.status === "partial" ? "Latest results" : "See what happened",
       detail: resultDetail,
       date: latest?.date || "No reported week",
       icon: <CircleCheckBig size={28} />,
@@ -1331,7 +1329,7 @@ function HomeDashboard({ data }: { data: LadderData }) {
       id: "upcoming",
       href: "/upcoming",
       label: upcomingLabel,
-      title: latest?.status === "partial" && upcoming?.dateKey === latest.dateKey ? "Remaining matches" : "See who's playing",
+      title: latest?.status === "partial" && upcoming?.dateKey === latest.dateKey ? "Remaining matches" : "See upcoming matches",
       detail: upcomingDetail,
       date: upcoming?.date || "Date to be announced",
       icon: <CalendarDays size={28} />,
@@ -1373,6 +1371,7 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
   const [compactMobileHeader, setCompactMobileHeader] = useState(false);
   const [statsMode, setStatsMode] = useState<StatsMode>("leaders");
   const [resultsWeekKey, setResultsWeekKey] = useState(data.latestResults?.dateKey || "");
+  const [weekday, setWeekday] = useState(() => localWeekday(data.updatedAt));
   const [query, setQuery] = useState("");
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const profiles = useMemo(() => new Map(data.profiles.map((profile) => [profile.name, profile])), [data.profiles]);
@@ -1385,7 +1384,19 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
   const resultsWeekIndex = resultsWeeks.findIndex((candidate) => candidate.dateKey === resultsWeek?.dateKey);
   const previousResultsWeek = resultsWeeks[resultsWeekIndex - 1];
   const nextResultsWeek = resultsWeeks[resultsWeekIndex + 1];
-  const week = section === "upcoming" ? data.upcoming : resultsWeek;
+  const isNewWeek = ["Mon", "Tue"].includes(weekday);
+  const nextScheduledWeek = data.weeks.find((candidate) =>
+    candidate.status === "scheduled" && (!data.latestResults || candidate.dateKey > data.latestResults.dateKey),
+  ) || null;
+  const upcoming = isNewWeek ? nextScheduledWeek : data.upcoming;
+  const week = section === "upcoming" ? upcoming : resultsWeek;
+
+  useEffect(() => {
+    const updateWeekday = () => setWeekday(localWeekday(new Date().toISOString()));
+    updateWeekday();
+    const interval = window.setInterval(updateWeekday, 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const updateHeader = () => setCompactMobileHeader(window.scrollY > 12);
@@ -1395,7 +1406,7 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
   }, []);
 
   function viewUpcomingBox(box: number) {
-    if (!data.upcoming?.boxes.some((candidate) => candidate.number === box)) return;
+    if (!upcoming?.boxes.some((candidate) => candidate.number === box)) return;
     setSelectedName(null);
     router.push(`/upcoming#box-${box}`);
   }
@@ -1450,7 +1461,7 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
       </> : null}
 
       <section className="content-shell">
-        {section === "home" ? <HomeDashboard data={data} /> : null}
+        {section === "home" ? <HomeDashboard data={data} upcoming={upcoming} isNewWeek={isNewWeek} /> : null}
 
         {section === "upcoming" ? <>
           <div className="section-head upcoming-section-head">
@@ -1536,7 +1547,7 @@ export function LadderApp({ data, section }: { data: LadderData; section: Ladder
         <ProfilePanel
           profile={selected}
           weeks={data.weeks}
-          canViewCurrentBox={Boolean(data.upcoming?.boxes.some((box) => box.number === selected.currentBox))}
+          canViewCurrentBox={Boolean(upcoming?.boxes.some((box) => box.number === selected.currentBox))}
           onViewCurrentBox={() => viewUpcomingBox(selected.currentBox)}
           onClose={() => setSelectedName(null)}
         />

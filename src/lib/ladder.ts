@@ -93,11 +93,15 @@ export function inferConfirmedSetResults(players: PlayerResult[]): ConfirmedSetR
 
 export function boxHasResult(box: LadderBox): boolean {
   return box.players.length === 4
-    && box.players.every((player) => player.total !== null && Boolean(player.movement));
+    && box.players.every((player) => Boolean(player.movement));
 }
 
 export function isRosterStatAppearance(player: PlayerResult): boolean {
-  return player.total !== null && !player.substitute.trim();
+  return Boolean(player.movement) && !player.substitute.trim();
+}
+
+function isRosterScoredAppearance(player: PlayerResult): boolean {
+  return isRosterStatAppearance(player) && player.scores.length === 3;
 }
 
 function summarizeWeek(week: LadderWeek): LadderWeek {
@@ -264,8 +268,9 @@ function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
   return [...histories.entries()]
     .map(([name, history]) => {
       const played = history.filter(isRosterStatAppearance);
+      const scored = history.filter(isRosterScoredAppearance);
       const positioned = played.length ? played : history;
-      const totalGames = played.reduce((sum, item) => sum + (item.total || 0), 0);
+      const totalGames = scored.reduce((sum, item) => sum + (item.total || 0), 0);
       const ordered = [...history].sort((a, b) => a.dateKey.localeCompare(b.dateKey));
       let streak = 0;
       for (let i = played.length - 1; i >= 0; i -= 1) {
@@ -284,10 +289,10 @@ function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
         promotions: played.filter((item) => item.movement === "UP").length,
         demotions: played.filter((item) => item.movement === "DOWN").length,
         stays: played.filter((item) => item.movement === "STAY").length,
-        setsPlayed: played.length * 3,
+        setsPlayed: scored.length * 3,
         setsWon: setWins.get(name) || 0,
         totalGames,
-        averageGames: played.length ? totalGames / played.length : 0,
+        averageGames: scored.length ? totalGames / scored.length : 0,
         streak,
         history: ordered.reverse(),
       };
@@ -297,7 +302,7 @@ function buildProfiles(weeks: LadderWeek[]): PlayerProfile[] {
 
 function playerWeekScore(week: LadderWeek, name: string): number {
   const result = week.boxes.flatMap((box) => box.players).find((player) => player.name === name);
-  return !result || !isRosterStatAppearance(result) ? 0 : result.total!;
+  return !result || !isRosterStatAppearance(result) ? 0 : result.total || 0;
 }
 
 export function buildClubRanking(completedWeeks: LadderWeek[]): ClubRankingEntry[] {

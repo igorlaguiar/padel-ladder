@@ -252,6 +252,21 @@ describe("buildLadderData", () => {
     expect(profile).toMatchObject({ weeksPlayed: 1, setsPlayed: 3, setsWon: 0 });
   });
 
+  it("treats four movement values as a reported box while leaving score stats empty", () => {
+    const scorelessResult = `,8/13/2026,,,
+Box 2 Crt 2,Scores,7:30 PM,Thur
+,,Alex Ace,UP
+,,Blake Ball,STAY
+,,Casey Court,STAY
+,,Drew Drop,DOWN`;
+    const data = buildLadderData(scorelessResult);
+    const profile = data.profiles.find((player) => player.name === "Alex Ace");
+
+    expect(data.latestResults).toMatchObject({ status: "complete", reportedBoxCount: 1, scheduledBoxCount: 1 });
+    expect(data.upcoming).toBeNull();
+    expect(profile).toMatchObject({ weeksPlayed: 1, promotions: 1, setsPlayed: 0, setsWon: 0, totalGames: 0, averageGames: 0 });
+  });
+
   it("treats a substitute week as zero when two STAY players are tied", () => {
     const current = parseLadderCsv(SAMPLE)[0];
     const prior: LadderWeek = {
