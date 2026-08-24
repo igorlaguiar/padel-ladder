@@ -6,6 +6,7 @@ import {
   ArrowRightLeft,
   ArrowUp,
   CalendarDays,
+  ChartNoAxesColumnIncreasing,
   CircleCheckBig,
   ChevronDown,
   ChevronLeft,
@@ -18,6 +19,7 @@ import {
   Info,
   ListOrdered,
   Medal,
+  Percent,
   RefreshCw,
   RotateCcw,
   Search,
@@ -140,27 +142,6 @@ const initials = (name: string) =>
     .toUpperCase();
 
 const firstName = (name: string) => name.trim().split(/\s+/)[0] || name;
-
-function formatIngestedAt(value: string): string {
-  const timestamp = new Date(value);
-  if (Number.isNaN(timestamp.getTime())) return "Last update unavailable";
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(timestamp);
-}
-
-function IngestedAt({ value }: { value: string }) {
-  const [timestamp, setTimestamp] = useState<string | null>(null);
-
-  useEffect(() => {
-    setTimestamp(formatIngestedAt(value));
-  }, [value]);
-
-  return <span>Last updated: {timestamp || "—"}</span>;
-}
 
 async function sharePng(blob: Blob, fileName: string) {
   const file = new File([blob], fileName, { type: "image/png" });
@@ -1079,9 +1060,9 @@ function StatsView({ profiles, onSelect }: { profiles: PlayerProfile[]; onSelect
         <header><Flame size={20} /><h3>Hot streaks</h3></header>
         <div>{hot.length ? hot.map((profile) => <button key={profile.name} onClick={() => onSelect(profile.name)}><strong>{profile.name}</strong><span>{profile.streak}× UP</span></button>) : <p className="hot-empty">No active UP streaks.</p>}</div>
       </section>
-      <SeasonLeaderboard title="Most moves up" icon={<Trophy size={20} />} entries={climbers} onSelect={onSelect} value={(profile) => profile.promotions} detail={(profile) => `Current box: ${profile.currentBox}`} />
+      <SeasonLeaderboard title="Most moves up" icon={<TrendingUp size={20} />} entries={climbers} onSelect={onSelect} value={(profile) => profile.promotions} detail={(profile) => `Current box: ${profile.currentBox}`} />
+      <SeasonLeaderboard title="Biggest climbers" icon={<ChartNoAxesColumnIncreasing size={20} />} entries={boxClimbers} onSelect={onSelect} value={(profile) => { const start = [...profile.history].filter(isRosterStatAppearance).sort((a, b) => a.dateKey.localeCompare(b.dateKey))[0]?.box ?? profile.currentBox; const change = start - profile.currentBox; return `${change > 0 ? "+" : ""}${change}`; }} detail={(profile) => { const start = [...profile.history].filter(isRosterStatAppearance).sort((a, b) => a.dateKey.localeCompare(b.dateKey))[0]?.box ?? profile.currentBox; return `Box ${start} to Box ${profile.currentBox}`; }} />
       <SeasonLeaderboard title="Most sets won" icon={<CircleCheckBig size={20} />} entries={setWinners} onSelect={onSelect} value={(profile) => profile.setsWon} detail={(profile) => `${profile.setsPlayed} sets played`} />
-      <SeasonLeaderboard title="Biggest climbers" icon={<TrendingUp size={20} />} entries={boxClimbers} onSelect={onSelect} value={(profile) => { const start = [...profile.history].filter(isRosterStatAppearance).sort((a, b) => a.dateKey.localeCompare(b.dateKey))[0]?.box ?? profile.currentBox; const change = start - profile.currentBox; return `${change > 0 ? "+" : ""}${change}`; }} detail={(profile) => { const start = [...profile.history].filter(isRosterStatAppearance).sort((a, b) => a.dateKey.localeCompare(b.dateKey))[0]?.box ?? profile.currentBox; return `Box ${start} to Box ${profile.currentBox}`; }} />
     </div>
   );
 }
@@ -1090,19 +1071,25 @@ function CareerStatsView({ profiles, seasons, onSelect }: { profiles: CareerProf
   const moves = [...profiles].sort((a, b) => b.promotions - a.promotions || b.weeksPlayed - a.weeksPlayed);
   const sets = [...profiles].sort((a, b) => b.setsWon - a.setsWon || b.setsPlayed - a.setsPlayed);
   const rates = [...profiles].filter((profile) => profile.setsPlayed >= 15).sort((a, b) => (b.setsWon / b.setsPlayed) - (a.setsWon / a.setsPlayed) || b.setsPlayed - a.setsPlayed);
-  const confirmedSets = seasons.reduce((sum, season) => sum + season.data.weeks.reduce((weekSum, week) => weekSum + week.boxes.reduce((boxSum, box) => boxSum + box.setResults.length, 0), 0), 0);
-  const mostMatches = [...profiles].sort((a, b) => b.setsPlayed - a.setsPlayed || a.name.localeCompare(b.name))[0];
+  const confirmedMatches = seasons.reduce((sum, season) => sum + season.data.weeks.reduce((weekSum, week) => weekSum + week.boxes.filter(boxHasResult).length, 0), 0);
+  const mostMatches = [...profiles].sort((a, b) => {
+    const weekDifference = b.weeksPlayed - a.weeksPlayed;
+    if (weekDifference) return weekDifference;
+    const aWinRate = a.setsPlayed ? a.setsWon / a.setsPlayed : 0;
+    const bWinRate = b.setsPlayed ? b.setsWon / b.setsPlayed : 0;
+    return bWinRate - aWinRate || a.name.localeCompare(b.name);
+  })[0];
   return (
     <div className="career-stats-layout">
       <section className="career-summary-card">
         <header><span>LEAGUE HISTORY</span><small>{seasons.length} seasons included</small></header>
         <div><strong>{profiles.length}</strong><small>Participants</small></div>
-        <div><strong>{confirmedSets}</strong><small>Total matches played</small></div>
-        <div className="career-summary-name"><strong>{mostMatches?.name || "—"}</strong><small>Most matches played · {mostMatches?.setsPlayed || 0}</small></div>
+        <div><strong>{confirmedMatches}</strong><small>Total matches played</small></div>
+        <div className="career-summary-name"><strong>{mostMatches?.name || "—"}</strong><small>Most weeks played · {mostMatches?.weeksPlayed || 0}</small></div>
       </section>
       <CareerLeaderboard title="Most career moves up" icon={<TrendingUp size={20} />} entries={moves} onSelect={onSelect} value={(profile) => profile.promotions} detail={(profile) => `${profile.weeksPlayed} weeks played`} />
+      <CareerLeaderboard title="Best set win rate" icon={<Percent size={20} />} entries={rates} onSelect={onSelect} value={(profile) => `${Math.round((profile.setsWon / profile.setsPlayed) * 100)}%`} detail={(profile) => `${profile.setsWon} of ${profile.setsPlayed} sets won`} tooltip="Players must have at least 15 confirmed sets to qualify." />
       <CareerLeaderboard title="Most confirmed sets won" icon={<CircleCheckBig size={20} />} entries={sets} onSelect={onSelect} value={(profile) => profile.setsWon} detail={(profile) => `${profile.setsPlayed} recorded sets`} />
-      <CareerLeaderboard title="Best set win rate" icon={<Trophy size={20} />} entries={rates} onSelect={onSelect} value={(profile) => `${Math.round((profile.setsWon / profile.setsPlayed) * 100)}%`} detail={(profile) => `${profile.setsWon} of ${profile.setsPlayed} sets won`} tooltip="Players must have at least 15 confirmed sets to qualify." />
     </div>
   );
 }
@@ -1547,7 +1534,6 @@ function HomeDashboard({ data, upcoming, isNewWeek }: { data: LadderData; upcomi
           <Link href="/seasons" className="home-explore-card"><History size={25} /><span><strong>Previous seasons</strong><small>Browse past results and final rankings</small></span><ArrowRight size={20} /></Link>
         </div>
       </section>
-      <p className="ingested-at"><IngestedAt value={data.updatedAt} /></p>
     </div>
   );
 }
@@ -1715,7 +1701,6 @@ export function LadderApp({
             showWeekday
             onSelect={setSelectedName}
           />
-          <p className="ingested-at"><IngestedAt value={data.updatedAt} /></p>
         </> : null}
 
         {section === "results" ? <>
