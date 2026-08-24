@@ -122,8 +122,7 @@ button { color: inherit; }
 .season-picker summary { list-style: none; cursor: pointer; }
 .season-picker summary::-webkit-details-marker { display: none; }
 .season-picker[open] .season-current svg { transform: rotate(180deg); }
-.season-current { min-width: 250px; display: grid; grid-template-columns: 1fr auto; gap: 2px 14px; padding: 15px 18px; color: var(--ink); background: var(--lime); text-decoration: none; }
-.season-current span { grid-column: 1 / -1; color: #566347; font: 500 9px "DM Mono", monospace; letter-spacing: .13em; }
+.season-current { min-width: 250px; min-height: 52px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 14px; padding: 15px 18px; color: var(--ink); background: var(--lime); text-decoration: none; }
 .season-current strong { font-size: 16px; }
 .season-current svg { align-self: center; }
 .season-picker-menu { position: absolute; z-index: 24; top: calc(100% + 6px); left: 0; width: 290px; padding: 6px; background: var(--white); border: 1px solid var(--ink); box-shadow: 7px 7px 0 var(--ink); }

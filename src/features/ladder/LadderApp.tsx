@@ -1419,13 +1419,12 @@ function SeasonBar({ selected, allTime, seasons, section }: { selected: SeasonDe
     <div className="season-bar">
       <details className="season-picker">
         <summary className="season-current">
-          <span>{allTime ? "CAREER VIEW" : selected.status === "current" ? "CURRENT SEASON" : "ARCHIVED SEASON"}</span>
           <strong>{allTime ? "All time" : selected.label}</strong>
           <ChevronDown size={17} />
         </summary>
         <div className="season-picker-menu">
-          {seasons.map(({ season }) => <Link className={!allTime && season.id === selected.id ? "active" : ""} href={sectionPath(season)} key={season.id}><span>{season.label}</span><small>{season.status === "current" ? "CURRENT" : "ARCHIVE"}</small></Link>)}
-          {section === "stats" ? <Link className={allTime ? "active" : ""} href="/stats/all-time"><span>All time</span><small>CAREER</small></Link> : null}
+          {seasons.map(({ season }) => <Link className={!allTime && season.id === selected.id ? "active" : ""} href={sectionPath(season)} key={season.id}>{season.label}</Link>)}
+          {section === "stats" ? <Link className={allTime ? "active" : ""} href="/stats/all-time">All time</Link> : null}
         </div>
       </details>
       {selected.status === "archived" ? (
