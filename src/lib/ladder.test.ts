@@ -158,7 +158,7 @@ describe("weekly awards and substitutes", () => {
     expect(awards.find((award) => award.kind === "player")?.recipients).toEqual([{ name: "Alex Ace" }]);
   });
 
-  it("separates clean-sweep players without a prior UP into honorable mentions", () => {
+  it("prioritizes consecutive promotions and gives clean sweeps honorable mentions", () => {
     const data = buildLadderData(SAMPLE);
     const original = data.latestCompleted!;
     const prior = {
@@ -184,6 +184,22 @@ describe("weekly awards and substitutes", () => {
     const award = buildWeeklyAwards(current, [prior, current]).find((candidate) => candidate.kind === "player");
     expect(award?.recipients).toEqual([{ name: "Alex Ace" }]);
     expect(award?.honorableMentions).toEqual([{ name: "Evan Edge" }]);
+  });
+
+  it("uses clean sweeps when there are no consecutive promotions", () => {
+    const current = parseLadderCsv(SAMPLE)[0];
+    const prior: LadderWeek = {
+      ...current,
+      date: "Aug 6, 2026",
+      dateKey: "2026-08-06",
+      boxes: current.boxes.map((box) => ({
+        ...box,
+        players: box.players.map((player) => ({ ...player, movement: "STAY" as const })),
+      })),
+    };
+    const award = buildWeeklyAwards(current, [prior, current]).find((candidate) => candidate.kind === "player");
+    expect(award?.recipients).toEqual([{ name: "Alex Ace" }]);
+    expect(award?.honorableMentions).toEqual([]);
   });
 });
 

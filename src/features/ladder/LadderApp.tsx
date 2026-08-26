@@ -584,7 +584,7 @@ function WeeklyAwards({ week, weeks }: { week: LadderWeek; weeks: LadderWeek[] }
                     <span>HONORABLE {award.honorableMentions.length > 1 ? "MENTIONS" : "MENTION"}</span>
                     <button type="button" className="weekly-award-info" aria-label="About honorable mentions" aria-describedby={`award-${award.kind}-honorable`}>
                       <Info size={12} />
-                      <span id={`award-${award.kind}-honorable`} className="award-tooltip" role="tooltip">Also won all three sets, but did not enter this week after an UP result.</span>
+                      <span id={`award-${award.kind}-honorable`} className="award-tooltip" role="tooltip">Won all three sets this week.</span>
                     </button>
                   </div>
                   <div>{award.honorableMentions.map((recipient) => <strong key={recipient.name}>{recipient.name}</strong>)}</div>

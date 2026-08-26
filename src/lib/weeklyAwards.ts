@@ -55,23 +55,27 @@ export function buildWeeklyAwards(week: LadderWeek, weeks: LadderWeek[]): Weekly
     });
   }
 
+  const consecutivePromotions = week.boxes.flatMap((box) => box.players.flatMap((player) => {
+    if (!isRosterStatAppearance(player) || player.movement !== "UP") return [];
+    return movedUpInPreviousWeek(weeks, targetIndex, player.name) ? [{ name: player.name }] : [];
+  }));
+
   const perfectPlayers = week.boxes.flatMap((box) => box.players.flatMap((player) => {
     if (!isRosterStatAppearance(player)) return [];
     const outcomes = setOutcomes(box, player.name);
     if (outcomes.length !== 3 || outcomes.some((won) => !won)) return [];
-    return [{ name: player.name, cameFromUp: movedUpInPreviousWeek(weeks, targetIndex, player.name) }];
+    return [{ name: player.name }];
   }));
 
-  if (perfectPlayers.length) {
-    const cameFromUp = perfectPlayers.filter((player) => player.cameFromUp);
-    const winners = perfectPlayers.length > 1 && cameFromUp.length ? cameFromUp : perfectPlayers;
-    const honorableMentions = cameFromUp.length
-      ? perfectPlayers.filter((player) => !player.cameFromUp).map((player) => ({ name: player.name }))
+  if (consecutivePromotions.length || perfectPlayers.length) {
+    const winners = consecutivePromotions.length ? consecutivePromotions : perfectPlayers;
+    const honorableMentions = consecutivePromotions.length
+      ? perfectPlayers.filter((player) => !consecutivePromotions.some((winner) => winner.name === player.name))
       : [];
     awards.push({
       kind: "player",
       title: winners.length > 1 ? "Players of the week" : "Player of the week",
-      detail: cameFromUp.length ? "Won all three sets after an UP result last week." : "Won all three sets.",
+      detail: consecutivePromotions.length ? "Moved UP for a second consecutive week." : "Won all three sets.",
       recipients: winners.map((winner) => ({ name: winner.name })),
       honorableMentions,
     });
