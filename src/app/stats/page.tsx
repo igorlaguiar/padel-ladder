@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { LadderRoute } from "@/app/_components/LadderRoute";
 
 export const metadata: Metadata = {
-  title: "Stats | Padel Ladder",
+  title: "Stats | MyLeague.Live",
   description: "League leaders, player form, and the current ladder ranking.",
 };
 

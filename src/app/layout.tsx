@@ -9,7 +9,7 @@ const siteUrl =
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "Padel Ladder",
+  title: "MyLeague.Live",
   description: "Live boxes, player movement, statistics, and match history.",
   manifest: "/manifest.webmanifest",
   icons: {
