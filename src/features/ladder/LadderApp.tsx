@@ -109,11 +109,12 @@ function InstallPromptBanner() {
     <>
       <aside className={`install-prompt${isInstalled ? " is-installed" : ""}`} aria-label="Install MyLeague">
         <div className="install-prompt-copy">
-          <strong>{isInstalled ? "MyLeague is installed." : "Use MyLeague like an app."}</strong>
-          <span>{isInstalled ? "Check your Home Screen, then open MyLeague from there." : "Keep the league one tap away."}</span>
+          <strong>{isInstalled ? "Installed. Open MyLeague from your Home Screen." : "Use MyLeague like an app."}</strong>
         </div>
-        {isInstalled ? null : <button type="button" className="install-prompt-action" onClick={platform === "ios" ? () => setShowInstructions(true) : installOnAndroid}>{platform === "ios" ? "Add" : "Install"}</button>}
-        <button type="button" className="install-prompt-dismiss" onClick={dismiss} aria-label="Dismiss install prompt"><X size={18} /></button>
+        <div className="install-prompt-controls">
+          {isInstalled ? null : <button type="button" className="install-prompt-action" onClick={platform === "ios" ? () => setShowInstructions(true) : installOnAndroid}>{platform === "ios" ? "Add to Home Screen" : "Install"}</button>}
+          <button type="button" className="install-prompt-dismiss" onClick={dismiss} aria-label="Dismiss install prompt"><X size={18} /></button>
+        </div>
       </aside>
 
       {showInstructions ? <div className="install-instructions-backdrop" role="presentation" onClick={() => setShowInstructions(false)}>
