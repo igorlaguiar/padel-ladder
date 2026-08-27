@@ -1488,7 +1488,7 @@ function SeasonBar({ selected, allTime, seasons, section }: { selected: SeasonDe
 function SeasonsView({ seasons }: { seasons: SeasonData[] }) {
   return (
     <div className="seasons-view">
-      <div className="section-head season-page-head"><div><span className="eyebrow"><i /> LEAGUE ARCHIVE</span><h2>Seasons</h2><p>Current play stays first. Past seasons remain available as permanent records.</p></div></div>
+      <div className="section-head season-page-head"><div><h2>Seasons</h2><p>Results and stats of recent seasons.</p></div></div>
       <div className="season-card-grid">
         {seasons.map(({ season, data }) => {
           const leader = data.ranking[0];
