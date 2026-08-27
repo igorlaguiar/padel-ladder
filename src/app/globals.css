@@ -53,6 +53,14 @@ button { color: inherit; }
 .primary-nav a:hover { color: var(--ink); background: var(--white); }
 .primary-nav a.active { color: var(--ink); background: var(--lime); }
 .nav-label-mobile { display: none; }
+.install-prompt, .install-instructions-backdrop { display: none; }
+
+@media (min-width: 721px) {
+  .site-header { transition: height .24s ease-out; }
+  .site-header.mobile-compact { height: 48px; }
+  .site-header.mobile-compact .header-logo-default { height: 38px; }
+  .site-header.mobile-compact + .primary-nav { top: 3px; }
+}
 
 .hero {
   min-height: 440px;
@@ -230,18 +238,21 @@ button { color: inherit; }
 .home-route-card p { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 14px; }
 .home-route-card.primary p { color: #465334; }
 .home-card-footer { grid-column: 1 / -1; margin-top: 18px; padding-top: 12px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(17,37,30,.25); font-size: 13px; font-weight: 700; }
-.league-pulse { width: 100%; min-height: 62px; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: stretch; overflow: hidden; background: var(--ink); color: var(--white); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.league-pulse { width: 100%; min-height: 62px; position: sticky; top: 78px; z-index: 29; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: stretch; overflow: hidden; background: var(--ink); color: var(--white); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); transition: top .24s ease-out, min-height .24s ease-out, grid-template-columns .24s ease-out; }
 .pulse-heading { display: flex; align-items: center; gap: .65em; padding: 0 20px; background: var(--lime); color: var(--ink); font: 500 11px "DM Mono", monospace; letter-spacing: .1em; white-space: nowrap; }
 .pulse-window { min-width: 0; overflow: hidden; display: flex; align-items: center; }
 .pulse-window > p { margin: 0 20px; color: #b9c3bd; font-size: 13px; }
-.pulse-track { width: max-content; display: flex; align-items: center; will-change: transform; }
-.league-pulse[data-visible="true"] .pulse-track { animation: pulse-scroll var(--pulse-duration) linear infinite; }
+.pulse-track { width: max-content; display: flex; align-items: center; will-change: transform; animation: pulse-scroll var(--pulse-duration) linear infinite; }
 .league-pulse:hover .pulse-track, .league-pulse:focus-within .pulse-track { animation-play-state: paused; }
 .pulse-sequence { display: flex; align-items: center; gap: 0; margin: 0; padding: 0; list-style: none; }
 .pulse-sequence li { min-height: 60px; display: flex; align-items: center; gap: 9px; padding: 0 28px; border-right: 1px solid #3a4c44; white-space: nowrap; }
+.pulse-sequence strong, .pulse-sequence li > span:last-child, .pulse-icon { display: inline-flex; align-items: center; line-height: 1; }
 .pulse-sequence strong { color: var(--lime); font: 500 10px "DM Mono", monospace; letter-spacing: .11em; }
 .pulse-sequence li > span:last-child { font-size: 13px; font-weight: 700; }
-.pulse-icon { width: 27px; height: 27px; display: grid; place-items: center; color: var(--lime); border: 1px solid #557066; }
+.pulse-icon { color: var(--lime); }
+.league-pulse.compact { top: 48px; min-height: 34px; }
+.league-pulse.compact .pulse-heading { padding: 0 16px; }
+.league-pulse.compact .pulse-sequence li { min-height: 32px; padding: 0 20px; }
 @keyframes pulse-scroll { to { transform: translateX(-50%); } }
 .home-explore-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .home-explore-card { min-height: 112px; display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 15px; padding: 22px; color: var(--ink); background: var(--white); border: 1px solid rgba(17,37,30,.25); text-decoration: none; transition: border-color .18s ease-out, transform .18s ease-out; }
@@ -529,6 +540,27 @@ footer { max-width: 1380px; margin: 0 auto; padding: 26px 28px 40px; border-top:
   .primary-nav a.active { background: var(--lime); }
   .nav-label-desktop { display: none; }
   .nav-label-mobile { display: inline; }
+  .install-prompt { position: fixed; left: 12px; right: 12px; bottom: calc(74px + env(safe-area-inset-bottom)); z-index: 31; min-height: 76px; padding: 12px 10px 12px 14px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--ink); background: var(--white); box-shadow: 5px 5px 0 var(--ink); }
+  .install-prompt.is-installed { background: var(--lime); }
+  .install-prompt-copy { min-width: 0; display: grid; gap: 2px; }
+  .install-prompt-copy strong { font-size: 13px; line-height: 1.25; }
+  .install-prompt-copy span { color: var(--muted); font-size: 11px; line-height: 1.35; }
+  .install-prompt.is-installed .install-prompt-copy span { color: rgba(17,37,30,.72); }
+  .install-prompt-action, .install-prompt-dismiss, .install-instructions-head button { border: 0; cursor: pointer; }
+  .install-prompt-action { flex: 0 0 auto; min-height: 36px; padding: 0 12px; background: var(--ink); color: var(--white); font-size: 12px; font-weight: 800; }
+  .install-prompt-dismiss { width: 32px; height: 32px; display: grid; place-items: center; flex: 0 0 auto; padding: 0; background: transparent; }
+  .install-instructions-backdrop { position: fixed; inset: 0; z-index: 40; padding: 20px 16px calc(88px + env(safe-area-inset-bottom)); background: rgba(17,37,30,.42); align-items: end; }
+  .install-instructions { width: 100%; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid var(--ink); background: var(--white); box-shadow: 6px 6px 0 var(--lime); }
+  .install-instructions-head { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+  .install-instructions-head span { color: var(--muted); font: 500 10px "DM Mono", monospace; letter-spacing: .12em; }
+  .install-instructions h2 { margin: 5px 0 0; font-size: 24px; line-height: 1.05; letter-spacing: -.05em; }
+  .install-instructions-head button { width: 34px; height: 34px; display: grid; place-items: center; padding: 0; background: transparent; }
+  .install-instructions ol { display: grid; gap: 14px; margin: 22px 0; padding: 0; list-style: none; counter-reset: install-step; }
+  .install-instructions li { display: grid; grid-template-columns: 28px 20px 1fr; align-items: center; gap: 9px; color: var(--muted); font-size: 13px; line-height: 1.35; counter-increment: install-step; }
+  .install-instructions li::before { content: counter(install-step); width: 28px; height: 28px; display: grid; place-items: center; background: var(--lime); color: var(--ink); font: 500 12px "DM Mono", monospace; }
+  .install-instructions li svg { color: var(--coral); }
+  .install-instructions li strong { color: var(--ink); }
+  .install-instructions-done { width: 100%; min-height: 44px; border: 0; background: var(--ink); color: var(--white); font-size: 13px; font-weight: 800; cursor: pointer; }
   .hero { min-height: 240px; padding: 12px 20px 34px; }
   .hero h1 { font-size: clamp(37px, 11.5vw, 45px); white-space: nowrap; }
   .eyebrow.greeting { font-size: 16.5px; }
@@ -588,12 +620,15 @@ footer { max-width: 1380px; margin: 0 auto; padding: 26px 28px 40px; border-top:
   .home-route-card { min-height: 165px; padding: 18px; box-shadow: 5px 5px 0 var(--ink); }
   .home-route-card:hover { transform: none; box-shadow: 5px 5px 0 var(--ink); }
   .home-route-card h3 { font-size: 29px; }
-  .league-pulse { grid-template-columns: 31px minmax(0, 1fr); min-height: 64px; }
-  .pulse-heading { grid-column: 1; grid-row: 1; min-height: 62px; padding: 5px 3px; justify-content: center; gap: 2px; font-size: 10px; letter-spacing: .06em; }
+  .league-pulse { position: sticky; top: 64px; z-index: 29; grid-template-columns: 31px minmax(0, 1fr); min-height: 64px; transition: top .24s ease-out, min-height .24s ease-out, grid-template-columns .24s ease-out; }
+  .pulse-heading { grid-column: 1; grid-row: 1; min-height: 62px; padding: 5px 3px; justify-content: center; gap: 2px; font-size: 10px; letter-spacing: .06em; transition: min-height .24s ease-out, padding .24s ease-out, transform .24s ease-out, opacity .18s ease-out; }
   .pulse-heading span:first-child { display: none; }
   .pulse-heading span { writing-mode: vertical-rl; transform: rotate(180deg); }
   .pulse-sequence li { min-height: 62px; padding: 0 20px; }
   .pulse-window { grid-column: 2; grid-row: 1; }
+  .league-pulse.compact { top: 34px; grid-template-columns: 0 minmax(0, 1fr); min-height: 34px; }
+  .league-pulse.compact .pulse-heading { min-height: 0; padding: 0; opacity: 0; transform: translateX(-100%); }
+  .league-pulse.compact .pulse-sequence li { min-height: 32px; padding: 0 16px; }
   .home-explore-card { min-height: 96px; padding: 16px; }
   .section-head { align-items: flex-start; flex-direction: column; }
   .section-head h2 { font-size: 36px; }

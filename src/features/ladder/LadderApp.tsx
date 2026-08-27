@@ -44,6 +44,95 @@ export type LadderSection = "home" | "upcoming" | "results" | "stats" | "head-to
 type StatsMode = "leaders" | "ranking";
 
 const SELECTED_PLAYER_STORAGE_KEY = "my-league-live.selected-player";
+const INSTALL_BANNER_DISMISSAL_STORAGE_KEY = "my-league-live.install-banner-dismissed";
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+};
+
+function InstallPromptBanner() {
+  const [platform, setPlatform] = useState<"ios" | "android" | null>(null);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isDismissed, setIsDismissed] = useState(true);
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    const userAgent = window.navigator.userAgent;
+    const isIos = /iPad|iPhone|iPod/.test(userAgent) || (window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/.test(userAgent);
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches || (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+    if (isStandalone || (!isIos && !isAndroid)) return;
+
+    setPlatform(isIos ? "ios" : "android");
+    setIsDismissed(window.localStorage.getItem(INSTALL_BANNER_DISMISSAL_STORAGE_KEY) === "true");
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    }
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+    };
+    const handleInstalled = () => {
+      setInstallPrompt(null);
+      setIsInstalled(true);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleInstalled);
+    };
+  }, []);
+
+  function dismiss() {
+    window.localStorage.setItem(INSTALL_BANNER_DISMISSAL_STORAGE_KEY, "true");
+    setIsDismissed(true);
+    setShowInstructions(false);
+  }
+
+  async function installOnAndroid() {
+    if (!installPrompt) return;
+    const prompt = installPrompt;
+    setInstallPrompt(null);
+    const result = await prompt.prompt();
+    if (result.outcome === "accepted") setIsInstalled(true);
+  }
+
+  if (!platform || isDismissed || (platform === "android" && !installPrompt && !isInstalled)) return null;
+
+  return (
+    <>
+      <aside className={`install-prompt${isInstalled ? " is-installed" : ""}`} aria-label="Install MyLeague">
+        <div className="install-prompt-copy">
+          <strong>{isInstalled ? "MyLeague is installed." : "Use MyLeague like an app."}</strong>
+          <span>{isInstalled ? "Check your Home Screen, then open MyLeague from there." : "Keep the league one tap away."}</span>
+        </div>
+        {isInstalled ? null : <button type="button" className="install-prompt-action" onClick={platform === "ios" ? () => setShowInstructions(true) : installOnAndroid}>{platform === "ios" ? "Add" : "Install"}</button>}
+        <button type="button" className="install-prompt-dismiss" onClick={dismiss} aria-label="Dismiss install prompt"><X size={18} /></button>
+      </aside>
+
+      {showInstructions ? <div className="install-instructions-backdrop" role="presentation" onClick={() => setShowInstructions(false)}>
+        <section className="install-instructions" role="dialog" aria-modal="true" aria-labelledby="install-instructions-title" onClick={(event) => event.stopPropagation()}>
+          <div className="install-instructions-head">
+            <div><span>INSTALL MYLEAGUE</span><h2 id="install-instructions-title">Add it to your Home Screen.</h2></div>
+            <button type="button" onClick={() => setShowInstructions(false)} aria-label="Close install instructions"><X size={20} /></button>
+          </div>
+          <ol>
+            <li><Share2 size={19} /><span>Open this page in Safari and tap <strong>Share</strong>.</span></li>
+            <li><House size={19} /><span>Select <strong>Add to Home Screen</strong>.</span></li>
+            <li><CircleCheckBig size={19} /><span>Tap <strong>Add</strong>. Later, open MyLeague from your Home Screen.</span></li>
+          </ol>
+          <button type="button" className="install-instructions-done" onClick={() => setShowInstructions(false)}>Got it</button>
+        </section>
+      </div> : null}
+    </>
+  );
+}
 
 const heroScoreFrames = [
   { point: "0 - 0", first: "5", second: "2" },
@@ -1379,18 +1468,8 @@ const pulseIcons: Record<LeagueHighlightKind, React.ReactNode> = {
   up: <ArrowUp size={17} />,
 };
 
-function LeaguePulse({ data }: { data: LadderData }) {
+function LeaguePulse({ data, compact }: { data: LadderData; compact: boolean }) {
   const highlights = useMemo(() => buildLeagueHighlights(data), [data]);
-  const [isVisible, setIsVisible] = useState(true);
-  const rootRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root || !("IntersectionObserver" in window)) return;
-    const observer = new IntersectionObserver(([entry]) => setIsVisible(entry.isIntersecting), { threshold: 0.05 });
-    observer.observe(root);
-    return () => observer.disconnect();
-  }, []);
 
   const sequence = (hidden = false) => (
     <ul className="pulse-sequence" aria-hidden={hidden || undefined}>
@@ -1406,10 +1485,8 @@ function LeaguePulse({ data }: { data: LadderData }) {
 
   return (
     <section
-      ref={rootRef}
-      className="league-pulse"
+      className={`league-pulse${compact ? " compact" : ""}`}
       aria-label="League highlights"
-      data-visible={isVisible}
       style={{ "--pulse-duration": `${Math.max(34, highlights.length * 7)}s` } as React.CSSProperties}
     >
       <strong className="pulse-heading"><span>LEAGUE</span><span>PULSE</span></strong>
@@ -1603,6 +1680,7 @@ export function LadderApp({
   selectedSeason,
   seasons: initialSeasons,
   allTime = false,
+  showPwaInstallTest = false,
 }: {
   data: LadderData;
   section: LadderSection;
@@ -1610,6 +1688,7 @@ export function LadderApp({
   seasons: SeasonData[];
   careerProfiles: CareerProfile[];
   allTime?: boolean;
+  showPwaInstallTest?: boolean;
 }) {
   const router = useRouter();
   const [seasons, setSeasons] = useState(initialSeasons);
@@ -1694,7 +1773,10 @@ export function LadderApp({
   }, [data.source, data.updatedAt, data.latestResults?.dateKey]);
 
   useEffect(() => {
-    const updateHeader = () => setCompactMobileHeader(window.scrollY > 12);
+    const updateHeader = () => {
+      const scrollY = window.scrollY;
+      setCompactMobileHeader((isCompact) => isCompact ? scrollY > 8 : scrollY > 88);
+    };
     updateHeader();
     window.addEventListener("scroll", updateHeader, { passive: true });
     return () => window.removeEventListener("scroll", updateHeader);
@@ -1754,8 +1836,9 @@ export function LadderApp({
           </Link>
         ))}
       </nav>
+      {showPwaInstallTest ? <InstallPromptBanner /> : null}
 
-      {section === "home" ? <LeaguePulse data={data} /> : null}
+      {section === "home" ? <LeaguePulse data={data} compact={compactMobileHeader} /> : null}
 
       {section === "home" ? <><section className="hero">
         <div className="hero-copy">

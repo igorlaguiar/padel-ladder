@@ -14,10 +14,12 @@ export async function LadderRoute({
   section,
   seasonId = "summer-2026",
   allTime = false,
+  showPwaInstallTest = false,
 }: {
   section: LadderSection;
   seasonId?: SeasonId;
   allTime?: boolean;
+  showPwaInstallTest?: boolean;
 }) {
   try {
     const responses = await Promise.all(SEASONS.map((season) =>
@@ -41,6 +43,7 @@ export async function LadderRoute({
         seasons={seasons}
         careerProfiles={buildCareerProfiles(seasons)}
         allTime={allTime}
+        showPwaInstallTest={showPwaInstallTest}
       />
     );
   } catch {
