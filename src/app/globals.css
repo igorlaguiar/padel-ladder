@@ -67,7 +67,7 @@ button { color: inherit; }
 }
 .hero-copy { position: relative; z-index: 2; }
 .eyebrow { font-family: "DM Mono", monospace; font-size: 11px; font-weight: 500; letter-spacing: .16em; color: var(--muted); }
-.eyebrow.greeting { display: flex; align-items: center; gap: 8px; font-size: 16.5px; letter-spacing: .1em; }
+.eyebrow.greeting { display: flex; align-items: center; gap: 12px; font-size: 16.5px; letter-spacing: .1em; }
 .eyebrow i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--coral); margin-right: 8px; box-shadow: 0 0 0 5px rgba(255,107,74,.14); }
 .eyebrow.greeting i { margin-right: 0; }
 .hero h1 { font-size: clamp(52px, 7vw, 102px); line-height: .88; letter-spacing: -.07em; margin: 25px 0 28px; max-width: 880px; white-space: nowrap; }
@@ -550,6 +550,8 @@ footer { max-width: 1380px; margin: 0 auto; padding: 26px 28px 40px; border-top:
   .next-game-label { display: inline-flex; align-items: center; }
   .next-game-label-desktop { display: none; }
   .next-game-label-mobile { display: inline-flex; align-items: center; }
+  .my-profile-link > svg, .next-game-link > svg { display: none; }
+  .my-profile-link > span, .next-game-link { text-decoration: underline; text-underline-offset: 3px; }
   .content-shell { padding: 34px 16px 70px; }
   .season-bar { margin: -18px 0 30px; display: grid; gap: 0; }
   .season-picker-menu { width: 100%; }

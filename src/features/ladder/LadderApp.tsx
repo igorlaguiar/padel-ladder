@@ -1146,7 +1146,7 @@ function careerAsProfiles(careers: CareerProfile[]): PlayerProfile[] {
   });
 }
 
-function CompareView({ seasons, careers, selectedSeason, onSelect, allTime = false }: { seasons: SeasonData[]; careers: CareerProfile[]; selectedSeason: SeasonDefinition; onSelect: (name: string) => void; allTime?: boolean }) {
+function CompareView({ seasons, careers, selectedSeason, selectedPlayerName, onSelect, allTime = false }: { seasons: SeasonData[]; careers: CareerProfile[]; selectedSeason: SeasonDefinition; selectedPlayerName?: string | null; onSelect: (name: string) => void; allTime?: boolean }) {
   const router = useRouter();
   const allProfiles = useMemo(() => careerAsProfiles(careers), [careers]);
   const scopedSeason = seasons.find((entry) => entry.season.id === selectedSeason.id) || seasons[0];
@@ -1162,8 +1162,9 @@ function CompareView({ seasons, careers, selectedSeason, onSelect, allTime = fal
     const leftParam = params.get("left");
     const rightParam = params.get("right");
     if (leftParam && active.some((profile) => profile.name === leftParam)) setLeftName(leftParam);
+    else if (selectedPlayerName && active.some((profile) => profile.name === selectedPlayerName)) setLeftName((current) => current || selectedPlayerName);
     if (rightParam && active.some((profile) => profile.name === rightParam)) setRightName(rightParam);
-  }, []);
+  }, [active, selectedPlayerName]);
   const leftScoped = scopedProfiles.find((profile) => profile.name === leftName);
   const rightScoped = scopedProfiles.find((profile) => profile.name === rightName);
   const left = leftScoped || active.find((profile) => profile.name === leftName);
@@ -1860,7 +1861,7 @@ export function LadderApp({
           </>}
         </> : null}
 
-        {section === "head-to-head" ? <><div className="section-head compare-section-head"><div><h2>Compare players</h2></div></div><CompareView seasons={seasons} careers={careerProfiles} selectedSeason={selectedSeason} onSelect={setSelectedName} allTime={allTime} /></> : null}
+        {section === "head-to-head" ? <><div className="section-head compare-section-head"><div><h2>Compare players</h2></div></div><CompareView seasons={seasons} careers={careerProfiles} selectedSeason={selectedSeason} selectedPlayerName={selectedPlayerName} onSelect={setSelectedName} allTime={allTime} /></> : null}
       </section>
 
       <footer>Built by Igor Aguiar</footer>
