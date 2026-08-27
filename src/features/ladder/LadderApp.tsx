@@ -43,6 +43,8 @@ import { buildCareerProfiles, SEASON_SHEETS } from "@/lib/seasons";
 export type LadderSection = "home" | "upcoming" | "results" | "stats" | "head-to-head" | "seasons" | "season";
 type StatsMode = "leaders" | "ranking";
 
+const SELECTED_PLAYER_STORAGE_KEY = "my-league-live.selected-player";
+
 const heroScoreFrames = [
   { point: "0 - 0", first: "5", second: "2" },
   { point: "0 - 15", first: "5", second: "2" },
@@ -215,6 +217,7 @@ function PlayerRow({
   pendingResult,
   showRecentResults,
   showSubstituteOnly,
+  isSelectedPlayer,
   onSelect,
   index,
 }: {
@@ -224,6 +227,7 @@ function PlayerRow({
   pendingResult: boolean;
   showRecentResults: boolean;
   showSubstituteOnly: boolean;
+  isSelectedPlayer: boolean;
   onSelect: () => void;
   index: number;
 }) {
@@ -237,7 +241,7 @@ function PlayerRow({
       onClick={onSelect}
     >
       <span className="avatar-wrap">
-        <span className="avatar">{initials(player.name)}</span>
+        <span className={`avatar${isSelectedPlayer ? " is-selected-player" : ""}`}>{initials(player.name)}</span>
         {showRecentResults && profile && profile.streak >= 2 ? (
           <span className="streak-fire" aria-label={`${profile.streak}-week UP streak`} title={`${profile.streak}-week UP streak`}>🔥</span>
         ) : null}
@@ -310,6 +314,7 @@ function BoxCard({
   showRecentResults,
   showSubstituteOnly,
   showWeekday,
+  selectedPlayerName,
   onSelect,
 }: {
   box: LadderBox;
@@ -318,6 +323,7 @@ function BoxCard({
   showRecentResults: boolean;
   showSubstituteOnly: boolean;
   showWeekday: boolean;
+  selectedPlayerName?: string | null;
   onSelect: (name: string) => void;
 }) {
   const awaitingResult = showResult && !boxHasResult(box);
@@ -346,6 +352,7 @@ function BoxCard({
             pendingResult={awaitingResult}
             showRecentResults={showRecentResults}
             showSubstituteOnly={showSubstituteOnly}
+            isSelectedPlayer={player.name === selectedPlayerName}
             onSelect={() => onSelect(player.name)}
             index={index}
           />
@@ -605,6 +612,7 @@ function LadderGrid({
   showRecentResults = false,
   showSubstituteOnly = false,
   showWeekday = false,
+  selectedPlayerName,
   onSelect,
 }: {
   week: LadderWeek | null;
@@ -613,6 +621,7 @@ function LadderGrid({
   showRecentResults?: boolean;
   showSubstituteOnly?: boolean;
   showWeekday?: boolean;
+  selectedPlayerName?: string | null;
   onSelect: (name: string) => void;
 }) {
   if (!week) return <div className="empty-state">No ladder is available yet.</div>;
@@ -627,6 +636,7 @@ function LadderGrid({
           showRecentResults={showRecentResults}
           showSubstituteOnly={showSubstituteOnly}
           showWeekday={showWeekday}
+          selectedPlayerName={selectedPlayerName}
           onSelect={onSelect}
         />
       ))}
@@ -682,6 +692,9 @@ function ProfilePanel({
   initialSeasonId,
   canViewCurrentBox,
   onViewCurrentBox,
+  onViewSeasonRank,
+  isSelectedPlayer,
+  onToggleSelectedPlayer,
   onClose,
 }: {
   profile: PlayerProfile;
@@ -690,6 +703,9 @@ function ProfilePanel({
   initialSeasonId: SeasonDefinition["id"];
   canViewCurrentBox: boolean;
   onViewCurrentBox: () => void;
+  onViewSeasonRank: (season: SeasonDefinition) => void;
+  isSelectedPlayer: boolean;
+  onToggleSelectedPlayer: (name: string) => void;
   onClose: () => void;
 }) {
   const initialSeason = career?.seasons.find((entry) => entry.season.id === initialSeasonId) || career?.seasons.find((entry) => entry.season.status === "current") || career?.seasons[0];
@@ -917,6 +933,13 @@ function ProfilePanel({
           <span className="profile-avatar">{initials(profile.name)}</span>
           <div><span>PLAYER PROFILE</span><h2>{profile.name}</h2></div>
         </div>
+        {isSelectedPlayer ? <button type="button" className="selected-player-tag" onClick={() => onToggleSelectedPlayer(profile.name)} aria-pressed="true"><UserRound size={14} /> This is you</button> : <button
+          type="button"
+          className="selected-player-button"
+          onClick={() => onToggleSelectedPlayer(profile.name)}
+        >
+          <UserRound size={18} /> This is me
+        </button>}
         <div className="profile-mode-tabs" aria-label="Player profile scope">
           {career?.seasons.map((entry) => <button key={entry.season.id} className={profileScope === entry.season.id ? "active" : ""} onClick={() => setProfileScope(entry.season.id)}>{entry.season.shortLabel}</button>)}
           <button className={isCareer ? "active" : ""} onClick={() => setProfileScope("career")}>Career</button>
@@ -936,10 +959,17 @@ function ProfilePanel({
             </article>)}
           </section>
         </> : <><div className="profile-position">
-          <div className="profile-rank-highlight">
-            <span>{isCurrentSeason ? "LEAGUE RANK" : "FINAL LEAGUE RANK"}</span>
+          <button
+            type="button"
+            className="profile-rank-highlight profile-rank-position"
+            onClick={() => seasonEntry && onViewSeasonRank(seasonEntry.season)}
+            disabled={!seasonEntry}
+            aria-label={isCurrentSeason ? "View season rank" : "View season final rank"}
+          >
+            <span>{isCurrentSeason ? "SEASON RANK" : "SEASON FINAL RANK"}</span>
             <strong>{profile.rank ? `#${profile.rank}` : "—"}</strong>
-          </div>
+            {seasonEntry ? <span className="profile-box-link">VIEW RANKING <ArrowRight size={14} /></span> : null}
+          </button>
           <button
             type="button"
             className="profile-box-position"
@@ -957,7 +987,7 @@ function ProfilePanel({
         <div className="profile-stats">
           <div><strong>{profile.highestBox}</strong><span>Highest box</span></div>
           <div><strong>{profile.promotions}</strong><span>Moves up</span></div>
-          <div><strong>{profile.rank ? `#${profile.rank}` : "—"}</strong><span>{isCurrentSeason ? "Current league rank" : "Final league rank"}</span></div>
+          <div><strong>{profile.rank ? `#${profile.rank}` : "—"}</strong><span>{isCurrentSeason ? "Current season rank" : "Season final rank"}</span></div>
           <div><strong>{profile.highestRank ? `#${profile.highestRank}` : "—"}</strong><span>Highest league rank</span></div>
           <div><strong>{profile.weeksPlayed}</strong><span>Weeks played</span></div>
           <div><strong>{profile.setsWon}</strong><span>Sets won</span></div>
@@ -996,7 +1026,7 @@ function ProfilePanel({
   );
 }
 
-function RankingView({ profiles, onSelect }: { profiles: PlayerProfile[]; onSelect: (name: string) => void }) {
+function RankingView({ profiles, selectedPlayerName, onSelect }: { profiles: PlayerProfile[]; selectedPlayerName?: string | null; onSelect: (name: string) => void }) {
   const ranked = profiles
     .filter((profile) => profile.rank !== null)
     .sort((left, right) => (left.rank || 0) - (right.rank || 0));
@@ -1009,7 +1039,7 @@ function RankingView({ profiles, onSelect }: { profiles: PlayerProfile[]; onSele
         return (
           <button key={profile.name} onClick={() => onSelect(profile.name)}>
             <strong className="club-rank">#{profile.rank}</strong>
-            <span className="ranking-player"><span className="avatar small">{initials(profile.name)}</span><strong>{profile.name}</strong></span>
+            <span className="ranking-player"><span className={`avatar small${profile.name === selectedPlayerName ? " is-selected-player" : ""}`}>{initials(profile.name)}</span><strong>{profile.name}</strong></span>
             <span className="recent-movements" aria-label={`${profile.name} last five results, oldest to newest`}>
               {recentResults.map((result) => (
                 <span key={`${result.dateKey}-${result.box}`} className={`movement-badge ${result.movement.toLowerCase()}`} title={`${result.date}: ${result.movement.toLowerCase()}`}>
@@ -1030,21 +1060,21 @@ function LeaderboardPager({ page, count, pageSize = 10, onChange }: { page: numb
   return <nav className="leaderboard-pager" aria-label="Leaderboard pages"><button disabled={page === 0} onClick={() => onChange(page - 1)} aria-label="Previous page"><ChevronLeft size={16} /></button><span>{page + 1} / {pages}</span><button disabled={page >= pages - 1} onClick={() => onChange(page + 1)} aria-label="Next page"><ChevronRight size={16} /></button></nav>;
 }
 
-function SeasonLeaderboard({ title, icon, entries, onSelect, value, detail }: { title: string; icon: React.ReactNode; entries: PlayerProfile[]; onSelect: (name: string) => void; value: (profile: PlayerProfile) => React.ReactNode; detail: (profile: PlayerProfile) => string }) {
+function SeasonLeaderboard({ title, icon, entries, selectedPlayerName, onSelect, value, detail }: { title: string; icon: React.ReactNode; entries: PlayerProfile[]; selectedPlayerName?: string | null; onSelect: (name: string) => void; value: (profile: PlayerProfile) => React.ReactNode; detail: (profile: PlayerProfile) => string }) {
   const [page, setPage] = useState(0);
   const pageSize = 10;
   const visible = entries.slice(page * pageSize, (page + 1) * pageSize);
-  return <section className="leaderboard-card"><header>{icon}<h3>{title}</h3></header>{visible.map((profile, index) => <button key={profile.name} onClick={() => onSelect(profile.name)}><span className="rank">{page * pageSize + index + 1}</span><span className="avatar small">{initials(profile.name)}</span><span className="leader-name"><strong>{profile.name}</strong><small>{detail(profile)}</small></span><strong className="lime-number">{value(profile)}</strong></button>)}<LeaderboardPager page={page} count={entries.length} onChange={setPage} /></section>;
+  return <section className="leaderboard-card"><header>{icon}<h3>{title}</h3></header>{visible.map((profile, index) => <button key={profile.name} onClick={() => onSelect(profile.name)}><span className="rank">{page * pageSize + index + 1}</span><span className={`avatar small${profile.name === selectedPlayerName ? " is-selected-player" : ""}`}>{initials(profile.name)}</span><span className="leader-name"><strong>{profile.name}</strong><small>{detail(profile)}</small></span><strong className="lime-number">{value(profile)}</strong></button>)}<LeaderboardPager page={page} count={entries.length} onChange={setPage} /></section>;
 }
 
-function CareerLeaderboard({ title, icon, entries, onSelect, value, detail, tooltip }: { title: string; icon: React.ReactNode; entries: CareerProfile[]; onSelect: (name: string) => void; value: (profile: CareerProfile) => React.ReactNode; detail: (profile: CareerProfile) => string; tooltip?: string }) {
+function CareerLeaderboard({ title, icon, entries, selectedPlayerName, onSelect, value, detail, tooltip }: { title: string; icon: React.ReactNode; entries: CareerProfile[]; selectedPlayerName?: string | null; onSelect: (name: string) => void; value: (profile: CareerProfile) => React.ReactNode; detail: (profile: CareerProfile) => string; tooltip?: string }) {
   const [page, setPage] = useState(0);
   const pageSize = 10;
   const visible = entries.slice(page * pageSize, (page + 1) * pageSize);
-  return <section className="leaderboard-card career-leaderboard"><header>{icon}<div className="leaderboard-title"><h3>{title}</h3>{tooltip ? <button type="button" className="leaderboard-info" aria-label={`About ${title}`}><Info size={13} /><span className="leaderboard-tooltip" role="tooltip">{tooltip}</span></button> : null}</div></header>{visible.map((profile, index) => <button key={profile.name} onClick={() => onSelect(profile.name)}><span className="rank">{page * pageSize + index + 1}</span><span className="avatar small">{initials(profile.name)}</span><span className="leader-name"><strong>{profile.name}</strong><small>{detail(profile)}</small></span><strong className="lime-number">{value(profile)}</strong></button>)}<LeaderboardPager page={page} count={entries.length} onChange={setPage} /></section>;
+  return <section className="leaderboard-card career-leaderboard"><header>{icon}<div className="leaderboard-title"><h3>{title}</h3>{tooltip ? <button type="button" className="leaderboard-info" aria-label={`About ${title}`}><Info size={13} /><span className="leaderboard-tooltip" role="tooltip">{tooltip}</span></button> : null}</div></header>{visible.map((profile, index) => <button key={profile.name} onClick={() => onSelect(profile.name)}><span className="rank">{page * pageSize + index + 1}</span><span className={`avatar small${profile.name === selectedPlayerName ? " is-selected-player" : ""}`}>{initials(profile.name)}</span><span className="leader-name"><strong>{profile.name}</strong><small>{detail(profile)}</small></span><strong className="lime-number">{value(profile)}</strong></button>)}<LeaderboardPager page={page} count={entries.length} onChange={setPage} /></section>;
 }
 
-function StatsView({ profiles, onSelect }: { profiles: PlayerProfile[]; onSelect: (name: string) => void }) {
+function StatsView({ profiles, selectedPlayerName, onSelect }: { profiles: PlayerProfile[]; selectedPlayerName?: string | null; onSelect: (name: string) => void }) {
   const active = profiles.filter((profile) => profile.weeksPlayed > 0);
   const climbers = [...active].sort((a, b) => b.promotions - a.promotions || a.currentBox - b.currentBox);
   const setWinners = [...active].sort((a, b) => b.setsWon - a.setsWon || b.setsPlayed - a.setsPlayed || a.currentBox - b.currentBox);
@@ -1060,14 +1090,14 @@ function StatsView({ profiles, onSelect }: { profiles: PlayerProfile[]; onSelect
         <header><Flame size={20} /><h3>Hot streaks</h3></header>
         <div>{hot.length ? hot.map((profile) => <button key={profile.name} onClick={() => onSelect(profile.name)}><strong>{profile.name}</strong><span>{profile.streak}× UP</span></button>) : <p className="hot-empty">No active UP streaks.</p>}</div>
       </section>
-      <SeasonLeaderboard title="Most moves up" icon={<TrendingUp size={20} />} entries={climbers} onSelect={onSelect} value={(profile) => profile.promotions} detail={(profile) => `Current box: ${profile.currentBox}`} />
-      <SeasonLeaderboard title="Biggest climbers" icon={<ChartNoAxesColumnIncreasing size={20} />} entries={boxClimbers} onSelect={onSelect} value={(profile) => { const start = [...profile.history].filter(isRosterStatAppearance).sort((a, b) => a.dateKey.localeCompare(b.dateKey))[0]?.box ?? profile.currentBox; const change = start - profile.currentBox; return `${change > 0 ? "+" : ""}${change}`; }} detail={(profile) => { const start = [...profile.history].filter(isRosterStatAppearance).sort((a, b) => a.dateKey.localeCompare(b.dateKey))[0]?.box ?? profile.currentBox; return `Box ${start} to Box ${profile.currentBox}`; }} />
-      <SeasonLeaderboard title="Most sets won" icon={<CircleCheckBig size={20} />} entries={setWinners} onSelect={onSelect} value={(profile) => profile.setsWon} detail={(profile) => `${profile.setsPlayed} sets played`} />
+      <SeasonLeaderboard title="Most moves up" icon={<TrendingUp size={20} />} entries={climbers} selectedPlayerName={selectedPlayerName} onSelect={onSelect} value={(profile) => profile.promotions} detail={(profile) => `Current box: ${profile.currentBox}`} />
+      <SeasonLeaderboard title="Biggest climbers" icon={<ChartNoAxesColumnIncreasing size={20} />} entries={boxClimbers} selectedPlayerName={selectedPlayerName} onSelect={onSelect} value={(profile) => { const start = [...profile.history].filter(isRosterStatAppearance).sort((a, b) => a.dateKey.localeCompare(b.dateKey))[0]?.box ?? profile.currentBox; const change = start - profile.currentBox; return `${change > 0 ? "+" : ""}${change}`; }} detail={(profile) => { const start = [...profile.history].filter(isRosterStatAppearance).sort((a, b) => a.dateKey.localeCompare(b.dateKey))[0]?.box ?? profile.currentBox; return `Box ${start} to Box ${profile.currentBox}`; }} />
+      <SeasonLeaderboard title="Most sets won" icon={<CircleCheckBig size={20} />} entries={setWinners} selectedPlayerName={selectedPlayerName} onSelect={onSelect} value={(profile) => profile.setsWon} detail={(profile) => `${profile.setsPlayed} sets played`} />
     </div>
   );
 }
 
-function CareerStatsView({ profiles, seasons, onSelect }: { profiles: CareerProfile[]; seasons: SeasonData[]; onSelect: (name: string) => void }) {
+function CareerStatsView({ profiles, seasons, selectedPlayerName, onSelect }: { profiles: CareerProfile[]; seasons: SeasonData[]; selectedPlayerName?: string | null; onSelect: (name: string) => void }) {
   const moves = [...profiles].sort((a, b) => b.promotions - a.promotions || b.weeksPlayed - a.weeksPlayed);
   const sets = [...profiles].sort((a, b) => b.setsWon - a.setsWon || b.setsPlayed - a.setsPlayed);
   const rates = [...profiles].filter((profile) => profile.setsPlayed >= 15).sort((a, b) => (b.setsWon / b.setsPlayed) - (a.setsWon / a.setsPlayed) || b.setsPlayed - a.setsPlayed);
@@ -1087,9 +1117,9 @@ function CareerStatsView({ profiles, seasons, onSelect }: { profiles: CareerProf
         <div><strong>{confirmedMatches}</strong><small>Total matches played</small></div>
         <div className="career-summary-name"><strong>{mostMatches?.name || "—"}</strong><small>Most weeks played · {mostMatches?.weeksPlayed || 0}</small></div>
       </section>
-      <CareerLeaderboard title="Most career moves up" icon={<TrendingUp size={20} />} entries={moves} onSelect={onSelect} value={(profile) => profile.promotions} detail={(profile) => `${profile.weeksPlayed} weeks played`} />
-      <CareerLeaderboard title="Best set win rate" icon={<Percent size={20} />} entries={rates} onSelect={onSelect} value={(profile) => `${Math.round((profile.setsWon / profile.setsPlayed) * 100)}%`} detail={(profile) => `${profile.setsWon} of ${profile.setsPlayed} sets won`} tooltip="Players must have at least 15 confirmed sets to qualify." />
-      <CareerLeaderboard title="Most confirmed sets won" icon={<CircleCheckBig size={20} />} entries={sets} onSelect={onSelect} value={(profile) => profile.setsWon} detail={(profile) => `${profile.setsPlayed} recorded sets`} />
+      <CareerLeaderboard title="Most career moves up" icon={<TrendingUp size={20} />} entries={moves} selectedPlayerName={selectedPlayerName} onSelect={onSelect} value={(profile) => profile.promotions} detail={(profile) => `${profile.weeksPlayed} weeks played`} />
+      <CareerLeaderboard title="Best set win rate" icon={<Percent size={20} />} entries={rates} selectedPlayerName={selectedPlayerName} onSelect={onSelect} value={(profile) => `${Math.round((profile.setsWon / profile.setsPlayed) * 100)}%`} detail={(profile) => `${profile.setsWon} of ${profile.setsPlayed} sets won`} tooltip="Players must have at least 15 confirmed sets to qualify." />
+      <CareerLeaderboard title="Most confirmed sets won" icon={<CircleCheckBig size={20} />} entries={sets} selectedPlayerName={selectedPlayerName} onSelect={onSelect} value={(profile) => profile.setsWon} detail={(profile) => `${profile.setsPlayed} recorded sets`} />
     </div>
   );
 }
@@ -1393,6 +1423,35 @@ function localWeekday(value: string): string {
   return new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "America/Chicago" }).format(new Date(value));
 }
 
+function scheduledStart(dateKey: string, time: string): Date | null {
+  const date = dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const clock = time.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
+  if (!date || !clock) return null;
+
+  const year = Number(date[1]);
+  const month = Number(date[2]) - 1;
+  const day = Number(date[3]);
+  let hour = Number(clock[1]);
+  const minute = Number(clock[2] || 0);
+  if (hour < 1 || hour > 12 || minute > 59) return null;
+  if (clock[3].toUpperCase() === "PM" && hour !== 12) hour += 12;
+  if (clock[3].toUpperCase() === "AM" && hour === 12) hour = 0;
+
+  const start = new Date(year, month, day, hour, minute);
+  return start.getFullYear() === year && start.getMonth() === month && start.getDate() === day ? start : null;
+}
+
+function nextGameForPlayer(weeks: LadderWeek[], name: string, now: Date) {
+  return weeks.flatMap((week) => week.boxes.flatMap((box) => {
+    const start = scheduledStart(week.dateKey, box.time);
+    return start && start > now && box.players.some((player) => player.name === name) ? [{ start, boxNumber: box.number, court: box.court }] : [];
+  })).sort((left, right) => left.start.getTime() - right.start.getTime())[0];
+}
+
+function formatNextGame(start: Date): string {
+  return new Intl.DateTimeFormat("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" }).format(start);
+}
+
 function seasonBasePath(season: SeasonDefinition): string {
   return season.status === "current" ? "/" : `/seasons/${season.id}`;
 }
@@ -1454,7 +1513,7 @@ function SeasonsView({ seasons }: { seasons: SeasonData[] }) {
   );
 }
 
-function SeasonOverview({ season, data, onSelect }: { season: SeasonDefinition; data: LadderData; onSelect: (name: string) => void }) {
+function SeasonOverview({ season, data, selectedPlayerName, onSelect }: { season: SeasonDefinition; data: LadderData; selectedPlayerName?: string | null; onSelect: (name: string) => void }) {
   const active = data.profiles.filter((profile) => profile.weeksPlayed);
   const leader = data.ranking[0];
   const mostUp = [...active].sort((a, b) => b.promotions - a.promotions)[0];
@@ -1469,7 +1528,7 @@ function SeasonOverview({ season, data, onSelect }: { season: SeasonDefinition; 
       </div>
       <div className="season-overview-actions"><Link href={`/seasons/${season.id}/results`}>Browse weekly results <ArrowRight size={18} /></Link><Link href={`/seasons/${season.id}/stats`}>View season stats <ArrowRight size={18} /></Link></div>
       <div className="section-head"><div><h2>Final Season Ranking</h2><p>Last recorded ladder position for each player.</p></div></div>
-      <RankingView profiles={data.profiles} onSelect={onSelect} />
+      <RankingView profiles={data.profiles} selectedPlayerName={selectedPlayerName} onSelect={onSelect} />
     </div>
   );
 }
@@ -1511,8 +1570,7 @@ function HomeDashboard({ data, upcoming, isNewWeek }: { data: LadderData; upcomi
 
   return (
     <div className="home-dashboard">
-      <section className="home-section" aria-labelledby="right-now-title">
-        <div className="home-section-head"><h2 id="right-now-title">Happening now</h2></div>
+      <section className="home-section" aria-label="League updates">
         <div className="home-status-grid">
           {statusCards.map((card) => (
             <Link key={card.id} href={card.href} className={`home-route-card${card.primary ? " primary" : ""}`}>
@@ -1562,6 +1620,8 @@ export function LadderApp({
   const [weekday, setWeekday] = useState(() => localWeekday(data.updatedAt));
   const [query, setQuery] = useState("");
   const [selectedName, setSelectedName] = useState<string | null>(null);
+  const [selectedPlayerName, setSelectedPlayerName] = useState<string | null>(null);
+  const [now, setNow] = useState<Date | null>(null);
   const allTimeProfiles = useMemo(() => careerAsProfiles(careerProfiles), [careerProfiles]);
   const displayProfiles = allTime || section === "head-to-head" ? allTimeProfiles : data.profiles;
   const profiles = useMemo(() => new Map(displayProfiles.map((profile) => [profile.name, profile])), [displayProfiles]);
@@ -1581,6 +1641,8 @@ export function LadderApp({
   ) || null;
   const upcoming = isNewWeek ? nextScheduledWeek : data.upcoming;
   const week = section === "upcoming" ? upcoming : resultsWeek;
+  const selectedPlayer = selectedPlayerName ? allTimeProfiles.find((profile) => profile.name === selectedPlayerName) : undefined;
+  const nextGame = selectedPlayer && now ? nextGameForPlayer(data.weeks, selectedPlayer.name, now) : undefined;
   useEffect(() => {
     const controller = new AbortController();
     const source = SEASON_SHEETS["summer-2026"];
@@ -1608,6 +1670,25 @@ export function LadderApp({
   }, []);
 
   useEffect(() => {
+    const storedPlayer = window.localStorage.getItem(SELECTED_PLAYER_STORAGE_KEY);
+    if (storedPlayer) setSelectedPlayerName(storedPlayer);
+  }, []);
+
+  useEffect(() => {
+    const updateNow = () => setNow(new Date());
+    updateNow();
+    const interval = window.setInterval(updateNow, 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (selectedPlayerName && !allTimeProfiles.some((profile) => profile.name === selectedPlayerName)) {
+      window.localStorage.removeItem(SELECTED_PLAYER_STORAGE_KEY);
+      setSelectedPlayerName(null);
+    }
+  }, [allTimeProfiles, selectedPlayerName]);
+
+  useEffect(() => {
     if (data.source === "live") setResultsWeekKey(data.latestResults?.dateKey || "");
   }, [data.source, data.updatedAt, data.latestResults?.dateKey]);
 
@@ -1618,10 +1699,30 @@ export function LadderApp({
     return () => window.removeEventListener("scroll", updateHeader);
   }, []);
 
+  useEffect(() => {
+    if (window.location.hash === "#ranking") setStatsMode("ranking");
+  }, []);
+
   function viewUpcomingBox(box: number) {
     if (!upcoming?.boxes.some((candidate) => candidate.number === box)) return;
     setSelectedName(null);
     router.push(`/upcoming#box-${box}`);
+  }
+
+  function viewSeasonRank(season: SeasonDefinition) {
+    setSelectedName(null);
+    setStatsMode("ranking");
+    router.push(`${season.status === "current" ? "/stats" : `/seasons/${season.id}/stats`}#ranking`);
+  }
+
+  function toggleSelectedPlayer(name: string) {
+    if (selectedPlayerName === name) {
+      window.localStorage.removeItem(SELECTED_PLAYER_STORAGE_KEY);
+      setSelectedPlayerName(null);
+      return;
+    }
+    window.localStorage.setItem(SELECTED_PLAYER_STORAGE_KEY, name);
+    setSelectedPlayerName(name);
   }
 
   const destinations: { id: LadderSection; href: string; label: string; mobileLabel: string; icon: React.ReactNode }[] = [
@@ -1657,7 +1758,7 @@ export function LadderApp({
 
       {section === "home" ? <><section className="hero">
         <div className="hero-copy">
-          <span className="eyebrow"><i /> PADEL+PICKLE ST. LOUIS</span>
+          <span className={`eyebrow${selectedPlayer ? " greeting" : ""}`}><i /> {selectedPlayer ? `Hello, ${firstName(selectedPlayer.name)}!` : "PADEL+PICKLE ST. LOUIS"}</span>
           <h1>Find your box.<br /><em>Climb the ladder.</em></h1>
           <p>Upcoming matches, weekly results, league stats and more.</p>
         </div>
@@ -1671,6 +1772,7 @@ export function LadderApp({
         {query ? <button onClick={() => setQuery("")} aria-label="Clear search"><X size={18} /></button> : null}
         {searchResults.length ? <div className="search-results">{searchResults.map((profile) => { const career = careerProfiles.find((entry) => entry.name === profile.name); const season = career?.seasons.find((entry) => entry.season.status === "current") || career?.seasons[0]; return <button key={profile.name} onClick={() => { setSelectedName(profile.name); setQuery(""); }}><span className="avatar small">{initials(profile.name)}</span><span><strong>{profile.name}</strong><small>{season ? `${season.season.label} · ${season.season.status === "current" ? "Box" : "Final Box"} ${season.profile.currentBox}` : "Career profile"}</small></span><ChevronRight size={18} /></button>; })}</div> : null}
       </section>
+      {selectedPlayer ? <div className="my-profile-actions"><button type="button" className="my-profile-link" onClick={() => setSelectedName(selectedPlayer.name)}><UserRound size={17} /><span>My Profile</span><ArrowRight size={18} /></button>{nextGame ? <Link className="next-game-link" href={`/upcoming#box-${nextGame.boxNumber}`}><span className="next-game-label"><span className="next-game-label-desktop">Next match:</span><span className="next-game-label-mobile"><Clock3 size={16} /></span></span><span>{formatNextGame(nextGame.start)}, Ct. {nextGame.court}</span><ArrowRight size={18} /></Link> : null}</div> : null}
       </> : null}
 
       <section className="content-shell">
@@ -1679,7 +1781,7 @@ export function LadderApp({
 
         {section === "seasons" ? <SeasonsView seasons={seasons} /> : null}
 
-        {section === "season" ? <SeasonOverview season={selectedSeason} data={data} onSelect={setSelectedName} /> : null}
+        {section === "season" ? <SeasonOverview season={selectedSeason} data={data} selectedPlayerName={selectedPlayerName} onSelect={setSelectedName} /> : null}
 
         {section === "upcoming" ? <>
           <div className="section-head upcoming-section-head">
@@ -1699,6 +1801,7 @@ export function LadderApp({
             showRecentResults
             showSubstituteOnly
             showWeekday
+            selectedPlayerName={selectedPlayerName}
             onSelect={setSelectedName}
           />
         </> : null}
@@ -1740,6 +1843,7 @@ export function LadderApp({
             showRecentResults={false}
             showSubstituteOnly
             showWeekday
+            selectedPlayerName={selectedPlayerName}
             onSelect={setSelectedName}
           />
         </> : null}
@@ -1750,9 +1854,9 @@ export function LadderApp({
             <button type="button" className={statsMode === "leaders" ? "active" : ""} aria-pressed={statsMode === "leaders"} onClick={() => setStatsMode("leaders")}>Stats</button>
             <button type="button" className={statsMode === "ranking" ? "active" : ""} aria-pressed={statsMode === "ranking"} onClick={() => setStatsMode("ranking")}>Ranking</button>
           </div> : null}
-          {allTime ? <CareerStatsView profiles={careerProfiles} seasons={seasons} onSelect={setSelectedName} /> : statsMode === "leaders" ? <StatsView profiles={data.profiles} onSelect={setSelectedName} /> : <>
+          {allTime ? <CareerStatsView profiles={careerProfiles} seasons={seasons} selectedPlayerName={selectedPlayerName} onSelect={setSelectedName} /> : statsMode === "leaders" ? <StatsView profiles={data.profiles} selectedPlayerName={selectedPlayerName} onSelect={setSelectedName} /> : <>
             <p className="ranking-explanation">Your ladder rank is your place in the next round of boxes. Movement sets the first and last positions in each box. Recent non-sub game totals order the players who stay.</p>
-            <RankingView profiles={data.profiles} onSelect={setSelectedName} />
+            <RankingView profiles={data.profiles} selectedPlayerName={selectedPlayerName} onSelect={setSelectedName} />
           </>}
         </> : null}
 
@@ -1769,6 +1873,9 @@ export function LadderApp({
           initialSeasonId={selectedSeason.id}
           canViewCurrentBox={selectedSeason.status === "current" && Boolean(upcoming?.boxes.some((box) => box.number === selected.currentBox))}
           onViewCurrentBox={() => viewUpcomingBox(selected.currentBox)}
+          onViewSeasonRank={viewSeasonRank}
+          isSelectedPlayer={selectedPlayerName === selected.name}
+          onToggleSelectedPlayer={toggleSelectedPlayer}
           onClose={() => setSelectedName(null)}
         />
       ) : null}

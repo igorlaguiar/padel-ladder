@@ -67,7 +67,9 @@ button { color: inherit; }
 }
 .hero-copy { position: relative; z-index: 2; }
 .eyebrow { font-family: "DM Mono", monospace; font-size: 11px; font-weight: 500; letter-spacing: .16em; color: var(--muted); }
+.eyebrow.greeting { display: flex; align-items: center; gap: 8px; font-size: 16.5px; letter-spacing: .1em; }
 .eyebrow i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--coral); margin-right: 8px; box-shadow: 0 0 0 5px rgba(255,107,74,.14); }
+.eyebrow.greeting i { margin-right: 0; }
 .hero h1 { font-size: clamp(52px, 7vw, 102px); line-height: .88; letter-spacing: -.07em; margin: 25px 0 28px; max-width: 880px; white-space: nowrap; }
 .hero h1 em { font-style: normal; color: var(--coral); }
 .hero p { color: var(--muted); font-size: 17px; margin: 0; max-width: 550px; }
@@ -120,6 +122,14 @@ button { color: inherit; }
 .search-results button:hover { background: var(--paper); }
 .search-results button > span:nth-child(2) { flex: 1; display: grid; }
 .search-results small { color: var(--muted); margin-top: 2px; }
+.my-profile-actions { width: min(760px, calc(100% - 40px)); min-height: 52px; margin: 16px auto 0; display: flex; align-items: stretch; }
+.my-profile-link, .next-game-link { min-height: 52px; display: flex; align-items: center; gap: 11px; color: var(--ink); background: transparent; text-decoration: none; }
+.my-profile-link { flex: 0 0 auto; padding: 10px 14px; border: 0; cursor: pointer; text-align: left; }
+.my-profile-link:hover, .next-game-link:hover { background: rgba(255,254,250,.55); }
+.my-profile-link:focus-visible, .next-game-link:focus-visible, .selected-player-button:focus-visible { outline: 3px solid var(--coral); outline-offset: 3px; }
+.my-profile-link > span { font-size: 14px; font-weight: 800; }
+.next-game-link { margin-left: auto; padding: 10px 0 10px 14px; color: var(--muted); font: 500 14px "DM Mono", monospace; white-space: nowrap; }
+.next-game-label-mobile { display: none; }
 
 .content-shell { max-width: 1380px; margin: 0 auto; padding: 62px 28px 90px; min-height: 850px; }
 .season-bar { margin: -28px 0 42px; display: flex; align-items: stretch; justify-content: space-between; gap: 18px; border-bottom: 1px solid rgba(17,37,30,.18); }
@@ -304,6 +314,7 @@ button { color: inherit; }
 .player-row:hover { transform: translateX(4px); }
 @keyframes row-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--paper); display: inline-grid; place-items: center; font-family: "DM Mono", monospace; font-size: 10px; font-weight: 500; flex: 0 0 auto; }
+.avatar.is-selected-player { background: var(--lime); }
 .avatar-wrap { position: relative; display: inline-flex; flex: 0 0 auto; }
 .streak-fire { position: absolute; top: -7px; right: -6px; font-size: 15px; line-height: 1; }
 .avatar.small { width: 32px; height: 32px; font-size: 9px; }
@@ -412,11 +423,15 @@ button { color: inherit; }
 @keyframes panel-in { from { transform: translateX(100%); } }
 .icon-button { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--white); cursor: pointer; }
 .panel-close { position: absolute; top: 18px; right: 18px; z-index: 2; }
-.profile-hero { background: var(--ink); color: var(--white); min-height: 210px; padding: 70px 32px 32px; display: flex; align-items: flex-end; gap: 17px; }
+.profile-hero { background: var(--ink); color: var(--white); min-height: 210px; padding: 70px 32px 32px; display: flex; align-items: center; gap: 17px; }
 .profile-avatar { width: 82px; height: 82px; border-radius: 50%; background: var(--lime); color: var(--ink); display: grid; place-items: center; font: 500 20px "DM Mono", monospace; flex: 0 0 auto; }
 .profile-hero > div { min-width: 0; }
 .profile-hero span:not(.profile-avatar) { color: #a6b1a9; font: 10px "DM Mono", monospace; letter-spacing: .12em; }
 .profile-hero h2 { font-size: 29px; line-height: 1; letter-spacing: -.04em; margin: 8px 0 0; }
+.selected-player-button { width: calc(100% - 64px); height: 48px; margin: 20px 32px 0; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--ink); background: var(--white); box-shadow: 4px 4px 0 var(--ink); font-weight: 800; cursor: pointer; }
+.selected-player-button:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink); }
+.selected-player-tag { position: absolute; top: 20px; left: 32px; z-index: 2; display: flex; align-items: center; gap: 5px; padding: 6px 8px; border: 0; background: var(--lime); color: var(--ink); font: 700 10px "DM Mono", monospace; letter-spacing: .04em; cursor: pointer; }
+.selected-player-tag:focus-visible { outline: 3px solid var(--coral); outline-offset: 3px; }
 .profile-position { margin: 0 32px; display: grid; grid-template-columns: 1.15fr 1fr; border: 1px solid var(--ink); }
 .profile-position > div, .profile-position > button { min-width: 0; display: grid; align-content: center; padding: 24px; }
 .profile-position span { color: var(--muted); font: 10px "DM Mono", monospace; letter-spacing: .12em; }
@@ -425,6 +440,9 @@ button { color: inherit; }
 .profile-rank-highlight { background: var(--lime); }
 .profile-rank-highlight span { color: var(--ink); }
 .profile-rank-highlight strong { font-size: 58px; }
+.profile-rank-position { border: 0; text-align: left; cursor: pointer; }
+.profile-rank-position:hover:not(:disabled) { background: #caff46; }
+.profile-rank-position:disabled { color: inherit; cursor: default; }
 .profile-box-position { border: 0; background: var(--white); text-align: left; cursor: pointer; }
 .profile-box-position:hover:not(:disabled) { background: var(--paper); }
 .profile-box-position:disabled { color: inherit; cursor: default; }
@@ -513,6 +531,7 @@ footer { max-width: 1380px; margin: 0 auto; padding: 26px 28px 40px; border-top:
   .nav-label-mobile { display: inline; }
   .hero { min-height: 240px; padding: 12px 20px 34px; }
   .hero h1 { font-size: clamp(37px, 11.5vw, 45px); white-space: nowrap; }
+  .eyebrow.greeting { font-size: 16.5px; }
   .hero h1 { margin-top: 19px; margin-bottom: 20px; }
   .hero p { font-size: 14px; max-width: 320px; }
   .hero-scoreboard { display: none; }
@@ -526,6 +545,11 @@ footer { max-width: 1380px; margin: 0 auto; padding: 26px 28px 40px; border-top:
   .hero-orbit span:nth-child(2) { top: 55%; right: -20px; }
   .hero-orbit span:nth-child(3) { bottom: 9px; left: 22%; }
   .search-wrap { height: 62px; margin-top: -31px; box-shadow: 5px 5px 0 var(--ink); }
+  .my-profile-actions { width: min(760px, calc(100% - 40px)); margin-top: 12px; }
+  .next-game-link { gap: 7px; font-size: 14px; }
+  .next-game-label { display: inline-flex; align-items: center; }
+  .next-game-label-desktop { display: none; }
+  .next-game-label-mobile { display: inline-flex; align-items: center; }
   .content-shell { padding: 34px 16px 70px; }
   .season-bar { margin: -18px 0 30px; display: grid; gap: 0; }
   .season-picker-menu { width: 100%; }
@@ -617,6 +641,8 @@ footer { max-width: 1380px; margin: 0 auto; padding: 26px 28px 40px; border-top:
   .profile-hero { padding-left: 22px; padding-right: 70px; }
   .profile-avatar { width: 65px; height: 65px; font-size: 16px; }
   .profile-hero h2 { font-size: 23px; }
+  .selected-player-button { width: calc(100% - 44px); margin-left: 22px; margin-right: 22px; }
+  .selected-player-tag { top: 16px; left: 22px; }
   .profile-position { margin-left: 22px; margin-right: 22px; grid-template-columns: 1fr 1fr; }
   .profile-position > div { padding: 18px; }
   .profile-position strong { font-size: 31px; }
