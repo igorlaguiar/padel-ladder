@@ -548,7 +548,7 @@ footer { max-width: 1380px; margin: 0 auto; padding: 26px 28px 40px; border-top:
   .install-prompt-controls { margin-left: auto; display: flex; align-items: center; gap: 4px; }
   .install-prompt-action { flex: 0 0 auto; min-height: 36px; padding: 0 12px; border-radius: 8px; background: var(--lime); color: var(--ink); font-size: 12px; font-weight: 800; }
   .install-prompt-dismiss { width: 32px; height: 32px; display: grid; place-items: center; flex: 0 0 auto; padding: 0; background: transparent; color: #b9c3bd; }
-  .install-instructions-backdrop { position: fixed; inset: 0; z-index: 40; padding: 20px 16px calc(88px + env(safe-area-inset-bottom)); background: rgba(17,37,30,.42); align-items: end; }
+  .install-instructions-backdrop { position: fixed; inset: 0; z-index: 40; padding: 20px 16px calc(88px + env(safe-area-inset-bottom)); display: flex; background: rgba(17,37,30,.42); align-items: end; }
   .install-instructions { width: 100%; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid var(--ink); background: var(--white); box-shadow: 6px 6px 0 var(--lime); }
   .install-instructions-head { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
   .install-instructions-head span { color: var(--muted); font: 500 10px "DM Mono", monospace; letter-spacing: .12em; }

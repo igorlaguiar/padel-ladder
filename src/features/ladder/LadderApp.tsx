@@ -112,7 +112,7 @@ function InstallPromptBanner() {
           <strong>{isInstalled ? "Installed. Open MyLeague from your Home Screen." : "Use MyLeague like an app."}</strong>
         </div>
         <div className="install-prompt-controls">
-          {isInstalled ? null : <button type="button" className="install-prompt-action" onClick={platform === "ios" ? () => setShowInstructions(true) : installOnAndroid}>{platform === "ios" ? "Add to Home Screen" : "Install"}</button>}
+          {isInstalled ? null : <button type="button" className="install-prompt-action" onClick={platform === "ios" ? () => setShowInstructions(true) : installOnAndroid}>Install</button>}
           <button type="button" className="install-prompt-dismiss" onClick={dismiss} aria-label="Dismiss install prompt"><X size={18} /></button>
         </div>
       </aside>
