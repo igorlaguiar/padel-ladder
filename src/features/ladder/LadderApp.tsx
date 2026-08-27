@@ -1683,7 +1683,6 @@ export function LadderApp({
   selectedSeason,
   seasons: initialSeasons,
   allTime = false,
-  showPwaInstallTest = false,
 }: {
   data: LadderData;
   section: LadderSection;
@@ -1691,7 +1690,6 @@ export function LadderApp({
   seasons: SeasonData[];
   careerProfiles: CareerProfile[];
   allTime?: boolean;
-  showPwaInstallTest?: boolean;
 }) {
   const router = useRouter();
   const [seasons, setSeasons] = useState(initialSeasons);
@@ -1839,7 +1837,7 @@ export function LadderApp({
           </Link>
         ))}
       </nav>
-      {showPwaInstallTest ? <InstallPromptBanner /> : null}
+      <InstallPromptBanner />
 
       {section === "home" ? <LeaguePulse data={data} compact={compactMobileHeader} /> : null}
 
