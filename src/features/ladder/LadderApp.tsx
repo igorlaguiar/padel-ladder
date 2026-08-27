@@ -30,6 +30,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
+import { Export, PlusSquare } from "@phosphor-icons/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -120,14 +121,15 @@ function InstallPromptBanner() {
       {showInstructions ? <div className="install-instructions-backdrop" role="presentation" onClick={() => setShowInstructions(false)}>
         <section className="install-instructions" role="dialog" aria-modal="true" aria-labelledby="install-instructions-title" onClick={(event) => event.stopPropagation()}>
           <div className="install-instructions-head">
-            <div><span>INSTALL MYLEAGUE</span><h2 id="install-instructions-title">Add it to your Home Screen.</h2></div>
+            <div><span>INSTALL MYLEAGUE</span><h2 id="install-instructions-title">Add it to your iPhone Home Screen</h2></div>
             <button type="button" onClick={() => setShowInstructions(false)} aria-label="Close install instructions"><X size={20} /></button>
           </div>
           <ol>
-            <li><Share2 size={19} /><span>Open this page in Safari and tap <strong>Share</strong>.</span></li>
-            <li><House size={19} /><span>Select <strong>Add to Home Screen</strong>.</span></li>
-            <li><CircleCheckBig size={19} /><span>Tap <strong>Add</strong>. Later, open MyLeague from your Home Screen.</span></li>
+            <li><Export size={19} /><span>Tap the <strong>Share</strong> icon in Safari or Chrome.</span></li>
+            <li><PlusSquare size={19} /><span>Scroll and select <strong>Add to Home Screen</strong>.</span></li>
+            <li><CircleCheckBig size={19} /><span>Tap <strong>Add</strong> to confirm.</span></li>
           </ol>
+          <p className="install-instructions-later">That&apos;s it! You can now open MyLeague as an app from your iPhone Home Screen.</p>
           <button type="button" className="install-instructions-done" onClick={() => setShowInstructions(false)}>Got it</button>
         </section>
       </div> : null}
