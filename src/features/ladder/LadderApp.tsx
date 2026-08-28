@@ -45,7 +45,7 @@ export type LadderSection = "home" | "upcoming" | "results" | "stats" | "head-to
 type StatsMode = "leaders" | "ranking";
 
 const SELECTED_PLAYER_STORAGE_KEY = "my-league-live.selected-player";
-const INSTALL_BANNER_DISMISSAL_STORAGE_KEY = "my-league-live.install-banner-dismissed";
+const INSTALL_BANNER_DISMISSAL_STORAGE_KEY = "my-league-live.install-banner-dismissed-v2";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
