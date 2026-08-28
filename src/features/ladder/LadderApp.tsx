@@ -19,6 +19,7 @@ import {
   Info,
   ListOrdered,
   Medal,
+  MoreVertical,
   Percent,
   RefreshCw,
   RotateCcw,
@@ -56,6 +57,7 @@ function InstallPromptBanner() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isDismissed, setIsDismissed] = useState(true);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [showAndroidInstructions, setShowAndroidInstructions] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
@@ -95,17 +97,21 @@ function InstallPromptBanner() {
     window.localStorage.setItem(INSTALL_BANNER_DISMISSAL_STORAGE_KEY, "true");
     setIsDismissed(true);
     setShowInstructions(false);
+    setShowAndroidInstructions(false);
   }
 
   async function installOnAndroid() {
-    if (!installPrompt) return;
+    if (!installPrompt) {
+      setShowAndroidInstructions(true);
+      return;
+    }
     const prompt = installPrompt;
     setInstallPrompt(null);
     const result = await prompt.prompt();
     if (result.outcome === "accepted") setIsInstalled(true);
   }
 
-  if (!platform || isDismissed || (platform === "android" && !installPrompt && !isInstalled)) return null;
+  if (!platform || isDismissed) return null;
 
   return (
     <>
@@ -119,19 +125,28 @@ function InstallPromptBanner() {
         </div>
       </aside>
 
-      {showInstructions ? <div className="install-instructions-backdrop" role="presentation" onClick={() => setShowInstructions(false)}>
+      {showInstructions || showAndroidInstructions ? <div className="install-instructions-backdrop" role="presentation" onClick={() => { setShowInstructions(false); setShowAndroidInstructions(false); }}>
         <section className="install-instructions" role="dialog" aria-modal="true" aria-labelledby="install-instructions-title" onClick={(event) => event.stopPropagation()}>
           <div className="install-instructions-head">
-            <div><span>INSTALL MYLEAGUE</span><h2 id="install-instructions-title">Add it to your iPhone Home Screen</h2></div>
-            <button type="button" onClick={() => setShowInstructions(false)} aria-label="Close install instructions"><X size={20} /></button>
+            <div><span>INSTALL MYLEAGUE</span><h2 id="install-instructions-title">{showAndroidInstructions ? "Install MyLeague on Android" : "Add it to your iPhone Home Screen"}</h2></div>
+            <button type="button" onClick={() => { setShowInstructions(false); setShowAndroidInstructions(false); }} aria-label="Close install instructions"><X size={20} /></button>
           </div>
-          <ol>
-            <li><Export size={19} /><span>Tap the <strong>Share</strong> icon in Safari or Chrome.</span></li>
-            <li><PlusSquare size={19} /><span>Scroll and select <strong>Add to Home Screen</strong>.</span></li>
-            <li><CircleCheckBig size={19} /><span>Tap <strong>Add</strong> to confirm.</span></li>
-          </ol>
-          <p className="install-instructions-later">That&apos;s it! You can now open MyLeague as an app from your iPhone Home Screen.</p>
-          <button type="button" className="install-instructions-done" onClick={() => setShowInstructions(false)}>Got it</button>
+          {showAndroidInstructions ? <>
+            <p className="install-instructions-later">Chrome has not made the one-tap install ready yet. You can still install MyLeague from the browser menu.</p>
+            <ol>
+              <li><MoreVertical size={19} /><span>Tap the <strong>three-dot menu</strong> in Chrome.</span></li>
+              <li><PlusSquare size={19} /><span>Select <strong>Install app</strong>.</span></li>
+              <li><CircleCheckBig size={19} /><span>Confirm the install.</span></li>
+            </ol>
+          </> : <>
+            <ol>
+              <li><Export size={19} /><span>Tap the <strong>Share</strong> icon in Safari or Chrome.</span></li>
+              <li><PlusSquare size={19} /><span>Scroll and select <strong>Add to Home Screen</strong>.</span></li>
+              <li><CircleCheckBig size={19} /><span>Tap <strong>Add</strong> to confirm.</span></li>
+            </ol>
+            <p className="install-instructions-later">That&apos;s it! You can now open MyLeague as an app from your iPhone Home Screen.</p>
+          </>}
+          <button type="button" className="install-instructions-done" onClick={() => { setShowInstructions(false); setShowAndroidInstructions(false); }}>Got it</button>
         </section>
       </div> : null}
     </>
