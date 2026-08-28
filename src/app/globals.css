@@ -55,13 +55,6 @@ button { color: inherit; }
 .nav-label-mobile { display: none; }
 .install-prompt, .install-instructions-backdrop { display: none; }
 
-@media (min-width: 721px) {
-  .site-header { transition: height .24s ease-out; }
-  .site-header.mobile-compact { height: 48px; }
-  .site-header.mobile-compact .header-logo-default { height: 38px; }
-  .site-header.mobile-compact + .primary-nav { top: 3px; }
-}
-
 .hero {
   min-height: 440px;
   max-width: 1380px;
@@ -250,9 +243,6 @@ button { color: inherit; }
 .pulse-sequence strong { color: var(--lime); font: 500 10px "DM Mono", monospace; letter-spacing: .11em; }
 .pulse-sequence li > span:last-child { font-size: 13px; font-weight: 700; }
 .pulse-icon { color: var(--lime); }
-.league-pulse.compact { top: 48px; min-height: 34px; }
-.league-pulse.compact .pulse-heading { padding: 0 16px; }
-.league-pulse.compact .pulse-sequence li { min-height: 32px; padding: 0 20px; }
 @keyframes pulse-scroll { to { transform: translateX(-50%); } }
 .home-explore-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .home-explore-card { min-height: 112px; display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 15px; padding: 22px; color: var(--ink); background: var(--white); border: 1px solid rgba(17,37,30,.25); text-decoration: none; transition: border-color .18s ease-out, transform .18s ease-out; }

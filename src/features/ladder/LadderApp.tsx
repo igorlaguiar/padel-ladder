@@ -1790,13 +1790,22 @@ export function LadderApp({
   }, [data.source, data.updatedAt, data.latestResults?.dateKey]);
 
   useEffect(() => {
+    const mobileViewport = window.matchMedia("(max-width: 720px)");
     const updateHeader = () => {
+      if (!mobileViewport.matches) {
+        setCompactMobileHeader(false);
+        return;
+      }
       const scrollY = window.scrollY;
       setCompactMobileHeader((isCompact) => isCompact ? scrollY > 8 : scrollY > 88);
     };
     updateHeader();
     window.addEventListener("scroll", updateHeader, { passive: true });
-    return () => window.removeEventListener("scroll", updateHeader);
+    mobileViewport.addEventListener("change", updateHeader);
+    return () => {
+      window.removeEventListener("scroll", updateHeader);
+      mobileViewport.removeEventListener("change", updateHeader);
+    };
   }, []);
 
   useEffect(() => {
