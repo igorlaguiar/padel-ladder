@@ -1,4 +1,5 @@
 import type { ClubRankingEntry, ConfirmedSetResult, HeadToHeadRecord, LadderBox, LadderData, LadderWeek, Movement, PlayerProfile, PlayerResult } from "./types";
+import { normalizePlayerName } from "./playerNames";
 
 const DATE_RE = /^\s*(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})\s*$/;
 const BOX_RE = /Box\s+(\d+)\s+(?:Crt|Ctrt)\s+(\d+)/i;
@@ -158,7 +159,12 @@ export function parseLadderCsv(csv: string): LadderWeek[] {
     if (!row.some((cell) => BOX_RE.test(cell))) continue;
 
     for (let base = 0; base < row.length; base += 4) {
-      const boxMatch = (row[base] || "").match(BOX_RE);
+      let boxMatch = (row[base] || "").match(BOX_RE);
+      // A week can omit the box label while retaining its schedule and roster.
+      // Other week columns in this row identify the same box and court.
+      if (!boxMatch && !row[base] && /^scores$/i.test(row[base + 1] || "") && row[base + 2] && row[base + 3]) {
+        boxMatch = row.find((cell) => BOX_RE.test(cell))?.match(BOX_RE) || null;
+      }
       const key = activeDates.get(base);
       if (!boxMatch || !key) continue;
 
@@ -174,7 +180,7 @@ export function parseLadderCsv(csv: string): LadderWeek[] {
 
       for (let offset = 1; offset <= 4; offset += 1) {
         const playerRow = rows[rowIndex + offset] || [];
-        const name = (playerRow[base + 2] || "").trim();
+        const name = normalizePlayerName(playerRow[base + 2] || "");
         if (!name) continue;
         const rawScore = (playerRow[base + 1] || "").trim();
         const scores = parseScore(rawScore);
@@ -182,7 +188,7 @@ export function parseLadderCsv(csv: string): LadderWeek[] {
         const movement: Movement = movementValue === "UP" || movementValue === "DOWN" || movementValue === "STAY" ? movementValue : "";
         box.players.push({
           name,
-          substitute: (playerRow[base] || "").trim(),
+          substitute: normalizePlayerName(playerRow[base] || ""),
           rawScore,
           scores,
           total: scores.length ? scores.reduce((sum, score) => sum + score, 0) : null,

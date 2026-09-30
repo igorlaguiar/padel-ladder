@@ -1,6 +1,6 @@
 import { LadderApp, type LadderSection } from "@/features/ladder/LadderApp";
 import { buildLadderData } from "@/lib/ladder";
-import { buildArchivedSeasonData, buildCareerProfiles, SEASONS, SEASON_SHEETS } from "@/lib/seasons";
+import { buildArchivedSeasonData, buildCareerProfiles, CURRENT_SEASON_ID, SEASONS, SEASON_SHEETS } from "@/lib/seasons";
 import type { SeasonData, SeasonId } from "@/lib/types";
 
 const BUILD_REFRESH_KEY = new Date().toISOString().slice(0, 16);
@@ -12,7 +12,7 @@ function csvUrl(seasonId: SeasonId) {
 
 export async function LadderRoute({
   section,
-  seasonId = "summer-2026",
+  seasonId = CURRENT_SEASON_ID,
   allTime = false,
 }: {
   section: LadderSection;
@@ -28,7 +28,7 @@ export async function LadderRoute({
     const csv = await Promise.all(responses.map((response) => response.text()));
     const seasons: SeasonData[] = SEASONS.map((season, index) => ({
       season,
-      data: season.id === "summer-2026"
+      data: season.status === "current"
         ? buildLadderData(csv[index], "static")
         : buildArchivedSeasonData(season.id, csv[index]),
     }));

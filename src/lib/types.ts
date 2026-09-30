@@ -92,7 +92,7 @@ export interface LadderData {
   source: "live" | "static" | "sample";
 }
 
-export type SeasonId = "summer-2026" | "spring-2026" | "winter-2026";
+export type SeasonId = "fall-2026" | "summer-2026" | "spring-2026" | "winter-2026";
 
 export interface SeasonDefinition {
   id: SeasonId;

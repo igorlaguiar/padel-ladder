@@ -32,6 +32,32 @@ describe("parseScore", () => {
 });
 
 describe("parseLadderCsv", () => {
+  it("keeps a scheduled box with a missing label when its row identifies the box", () => {
+    const csv = `,9/23/2026,,,,9/30/2026,,,,10/7/2026,,,
+Box 13 Crt 1,Scores,6:00 PM,Wed,,Scores,7:30 PM,Wed,,Scores,6:00 PM,Wed
+,"6,6,6",Patrick Murphy,UP,,,Patrick Murphy,
+,"6,4,6",Raj Phalke,STAY,,,Raj Phalke,
+,"4,6,3",Kellie Cramer,STAY,,,Kellie Cramer,
+,"4,4,3",Josh Peck,DOWN,,,Josh Peck,
+,9/24/2026,,,,10/1/2026,,,,10/8/2026,,,
+Box 1 Crt 1,Scores,6:00 PM,Thur,Box 1 Crt 1,Scores,6:00 PM,Thur,Box 1 Crt 1,Scores,6:00 PM,Thur
+,"6,6,6",First Player,UP,,,First Player,
+,"6,4,6",Second Player,STAY,,,Second Player,
+,"4,6,3",Third Player,STAY,,,Third Player,
+,"4,4,3",Fourth Player,DOWN,,,Fourth Player,`;
+    const data = buildLadderData(csv);
+    expect(data.weeks).toHaveLength(2);
+    expect(data.upcoming).toMatchObject({ date: "Sep 30–Oct 1, 2026", scheduledBoxCount: 2 });
+    expect(data.upcoming?.boxes.map((box) => box.number)).toEqual([1, 13]);
+    expect(data.upcoming?.boxes[1]).toMatchObject({
+      number: 13,
+      court: "1",
+      time: "7:30 PM",
+      day: "Wed",
+      players: [{ name: "Patrick Murphy" }, { name: "Raj Phalke" }, { name: "Kellie Cramer" }, { name: "Josh Peck" }],
+    });
+  });
+
   it("reads weekly boxes and player movement", () => {
     const weeks = parseLadderCsv(SAMPLE);
     expect(weeks).toHaveLength(2);

@@ -1,8 +1,9 @@
 import { LadderRoute } from "@/app/_components/LadderRoute";
+import { SEASONS } from "@/lib/seasons";
 import type { SeasonId } from "@/lib/types";
 
 export function generateStaticParams() {
-  return [{ season: "spring-2026" }, { season: "winter-2026" }];
+  return SEASONS.filter((season) => season.status === "archived").map((season) => ({ season: season.id }));
 }
 
 export default async function SeasonPage({ params }: { params: Promise<{ season: SeasonId }> }) {

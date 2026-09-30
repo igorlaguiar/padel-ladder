@@ -1,14 +1,19 @@
 import { buildLadderDataFromWeeks, inferConfirmedSetResults, parseLadderCsv } from "./ladder";
+import { normalizePlayerName } from "./playerNames";
 import type { CareerProfile, LadderData, LadderWeek, PlayerResult, SeasonData, SeasonDefinition, SeasonId } from "./types";
 
+export const CURRENT_SEASON_ID: SeasonId = "fall-2026";
+
 export const SEASONS: SeasonDefinition[] = [
-  { id: "summer-2026", label: "Summer 2026", shortLabel: "SUMMER '26", status: "current", dateRange: "July–September 2026" },
+  { id: CURRENT_SEASON_ID, label: "Fall 2026", shortLabel: "FALL '26", status: "current", dateRange: "September–December 2026" },
+  { id: "summer-2026", label: "Summer 2026", shortLabel: "SUMMER '26", status: "archived", dateRange: "July–September 2026" },
   { id: "spring-2026", label: "Spring 2026", shortLabel: "SPRING '26", status: "archived", dateRange: "April–June 2026" },
   { id: "winter-2026", label: "Winter 2026", shortLabel: "WINTER '26", status: "archived", dateRange: "January–March 2026" },
 ];
 
 export const SEASON_SHEETS: Record<SeasonId, { sheetId: string; gid: string }> = {
-  "summer-2026": { sheetId: "1R5ndg23EqVhadgBmcHeVIMiGYu8pRFWXkAcZ1oeIoFo", gid: "1294873893" },
+  "fall-2026": { sheetId: "1JrmwqiCPqLlk1rBruMjR4zDbYP6SY6D2FDGEwwEFImk", gid: "0" },
+  "summer-2026": { sheetId: "1w91b6ZmZ9dr5Qe4dhRa8TGeKy6PQRLo5UGwIQRkIO-4", gid: "1294873893" },
   "spring-2026": { sheetId: "1FeOWoazs3Q3uv7hTOllUu8BJu2qqY7MOprp6pLNNxus", gid: "0" },
   "winter-2026": { sheetId: "1cy3Hum9Ncv4kbYlts95CdPiqNsyjW3M_96UxJRARhWg", gid: "0" },
 };
@@ -33,7 +38,7 @@ function normalizeArchivedPlayer(seasonId: SeasonId, player: PlayerResult): Play
   if (/didn.t show,\s*oscar filled in/i.test(raw)) substitute = "Oscar";
   if (/no show/i.test(raw)) substitute = "No show";
   if (seasonId === "winter-2026" && /^injury\s*-\s*ge$/i.test(raw)) substitute = "Grant Edwards";
-  return { ...player, substitute };
+  return { ...player, substitute: normalizePlayerName(substitute) };
 }
 
 function summarizeNormalizedWeek(week: LadderWeek): LadderWeek {
@@ -56,7 +61,7 @@ export function normalizeArchivedWeeks(seasonId: SeasonId, weeks: LadderWeek[]):
   }));
 }
 
-export function buildArchivedSeasonData(seasonId: Exclude<SeasonId, "summer-2026">, csv: string): LadderData {
+export function buildArchivedSeasonData(seasonId: SeasonId, csv: string): LadderData {
   const normalized = normalizeArchivedWeeks(seasonId, parseLadderCsv(csv));
   const data = buildLadderDataFromWeeks(normalized, "static");
   const ranked = new Map(data.ranking.map((entry) => [entry.name, entry]));

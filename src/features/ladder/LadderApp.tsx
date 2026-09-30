@@ -40,7 +40,7 @@ import type { CareerProfile, ConfirmedSetResult, LadderBox, LadderData, LadderWe
 import { boxHasResult, buildHeadToHeadRecord, buildLadderData, isRosterStatAppearance, sortBoxPlayers } from "@/lib/ladder";
 import { buildLeagueHighlights, type LeagueHighlightKind } from "@/lib/leagueHighlights";
 import { buildWeeklyAwards, type WeeklyAwardKind } from "@/lib/weeklyAwards";
-import { buildCareerProfiles, SEASON_SHEETS } from "@/lib/seasons";
+import { buildCareerProfiles, CURRENT_SEASON_ID, SEASON_SHEETS } from "@/lib/seasons";
 
 export type LadderSection = "home" | "upcoming" | "results" | "stats" | "head-to-head" | "seasons" | "season";
 type StatsMode = "leaders" | "ranking";
@@ -1603,7 +1603,7 @@ function SeasonsView({ seasons }: { seasons: SeasonData[] }) {
         })}
       </div>
       <div className="archive-all-time">
-        <div><span>CAREER RECORDS</span><h3>All-time league numbers</h3><p>Compare players across Winter, Spring, and Summer 2026.</p></div>
+        <div><span>CAREER RECORDS</span><h3>All-time league numbers</h3><p>Compare players across all recorded seasons.</p></div>
         <div><Link href="/stats/all-time">All-time stats <ArrowRight size={18} /></Link><Link href="/head-to-head/all-time">All-time H2H <ArrowRight size={18} /></Link></div>
       </div>
     </div>
@@ -1742,7 +1742,7 @@ export function LadderApp({
   const nextGame = selectedPlayer && now ? nextGameForPlayer(data.weeks, selectedPlayer.name, now) : undefined;
   useEffect(() => {
     const controller = new AbortController();
-    const source = SEASON_SHEETS["summer-2026"];
+    const source = SEASON_SHEETS[CURRENT_SEASON_ID];
     const url = `https://docs.google.com/spreadsheets/d/${source.sheetId}/gviz/tq?tqx=out:csv&gid=${source.gid}&refresh=${Date.now()}`;
     fetch(url, { cache: "no-store", signal: controller.signal })
       .then((response) => {
@@ -1751,7 +1751,7 @@ export function LadderApp({
       })
       .then((csv) => {
         const liveData = buildLadderData(csv, "live");
-        setSeasons((current) => current.map((entry) => entry.season.id === "summer-2026" ? { ...entry, data: liveData } : entry));
+        setSeasons((current) => current.map((entry) => entry.season.id === CURRENT_SEASON_ID ? { ...entry, data: liveData } : entry));
       })
       .catch((error) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
